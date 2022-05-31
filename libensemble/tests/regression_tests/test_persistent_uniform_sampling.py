@@ -44,7 +44,11 @@ sim_specs = {
 
 gen_specs = {
     "persis_in": ["x", "f", "grad", "sim_id"],
-    "out": [("x", float, (n,))],
+    "out": [
+        ("x", float, (n,)),
+        ("worker_gen_started_time", float),
+        ("worker_gen_ended_time", float),
+    ],
     "user": {
         "initial_batch_size": batch,
         "lb": np.array([-3, -2]),
@@ -57,8 +61,9 @@ alloc_specs = {"alloc_f": alloc_f}
 exit_criteria = {"gen_max": num_batches * batch, "wallclock_max": 300}
 
 libE_specs["kill_canceled_sims"] = False
+libE_specs["safe_mode"] = False
 
-for run in range(2):
+for run in range(1):
     persis_info = add_unique_random_streams({}, nworkers + 1)
     for i in persis_info:
         persis_info[i]["get_grad"] = True

@@ -49,5 +49,9 @@ for i in range(1, num_workers + 1):
     b = [(H[i]["sim_started_time"] - mint, H[i]["sim_ended_time"] - H[i]["sim_started_time"]) for i in inds]
     gnt.broken_barh(b, (i + 0.55, 0.35), facecolors=sim_work_color, edgecolor=sim_work_color)
 
-gnt.legend(["Gen work", "Sim work"], loc="lower right")
+    inds = np.where(H["gen_worker"] == i)[0]
+    b = [(H[i]["worker_gen_started_time"] - mint, H[i]["worker_gen_ended_time"] - H[i]["worker_gen_started_time"]) for i in inds]
+    gnt.broken_barh(b, (i + 0.1, 0.35), facecolors='k', edgecolor='k')
+
+gnt.legend(["'manager' Gen work", "Sim work", "'worker' Gen work"], loc="lower right")
 plt.savefig("gantt1.png", dpi=400)

@@ -1,4 +1,5 @@
 import numpy as np
+import time 
 
 from libensemble.message_numbers import STOP_TAG, PERSIS_STOP, FINISHED_PERSISTENT_GEN_TAG, EVAL_GEN_TAG
 from libensemble.tools.persistent_support import PersistentSupport
@@ -33,7 +34,9 @@ def persistent_uniform(H, persis_info, gen_specs, libE_info):
     tag = None
     while tag not in [STOP_TAG, PERSIS_STOP]:
         H_o = np.zeros(b, dtype=gen_specs["out"])
+        H_o['worker_gen_started_time'] = time.time()
         H_o["x"] = persis_info["rand_stream"].uniform(lb, ub, (b, n))
+        H_o['worker_gen_ended_time'] = time.time()
         tag, Work, calc_in = ps.send_recv(H_o)
         if hasattr(calc_in, "__len__"):
             b = len(calc_in)
