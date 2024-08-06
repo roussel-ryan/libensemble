@@ -58,8 +58,8 @@ if __name__ == "__main__":
     sampling.gen_specs = GenSpecs(**gen_specs)
     sampling.exit_criteria = ExitCriteria(sim_max=100)
     sampling.persis_info = add_unique_random_streams({}, sampling.nworkers + 1)
-    sampling.H0 = create_H0(sampling.persis_info, gen_specs, 50)
-    sampling.run()
+    H0 = create_H0(sampling.persis_info, gen_specs, 50)
+    sampling.run(H0)
 
     if sampling.is_manager:
         assert len(sampling.H) == 2 * len(sampling.H0)

@@ -12,8 +12,8 @@ from libensemble.libE import libE
 from libensemble.specs import AllocSpecs, ExitCriteria, GenSpecs, LibeSpecs, SimSpecs
 from libensemble.tools import add_unique_random_streams
 from libensemble.tools import parse_args as parse_args_f
-from libensemble.tools.parse_args import mpi_init
 from libensemble.tools import save_libE_output
+from libensemble.tools.parse_args import mpi_init
 from libensemble.utils.misc import specs_dump
 
 ATTR_ERR_MSG = 'Unable to load "{}". Is the function or submodule correctly named?'
@@ -366,7 +366,7 @@ class Ensemble:
     def _refresh_executor(self):
         Executor.executor = self.executor or Executor.executor
 
-    def run(self) -> (npt.NDArray, dict, int):
+    def run(self, H0: Optional[npt.NDArray] = None) -> (npt.NDArray, dict, int):
         """
         Initializes libEnsemble.
 
@@ -379,6 +379,15 @@ class Ensemble:
             If a MPI communicator was provided in ``libE_specs``, then each ``.run()`` call
             will initiate intercommunications on a **duplicate** of that communicator.
             Otherwise, a duplicate of ``COMM_WORLD`` will be used.
+
+        Parameters
+        ----------
+
+        H0: NumPy structured array
+
+            Previous history array storing rows for each point. The ensemble will procede from
+            the provided history.
+            :ref:`(example)<funcguides-history>`
 
         Returns
         -------
@@ -409,6 +418,9 @@ class Ensemble:
 
         if self._libE_specs.comms != self._known_comms:
             raise ValueError(CHANGED_COMMS_WARN)
+
+        if H0 is not None:
+            self.H0 = H0
 
         self.H, self.persis_info, self.flag = libE(
             self.sim_specs,
