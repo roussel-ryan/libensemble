@@ -112,15 +112,8 @@ jobs:
             python -m pip install --upgrade pip
             pip install mpmath
             pip install matplotlib
-            conda env update --file install/gen_deps_environment.yml
-
-        #- name: Install ax-platform
-        #  run: pip install "ax-platform<=0.4.0"
-
-        - name: Install gpcam
-          if: matrix.python-version != '3.12'
-          run: |
             pip install gpcam
+            conda env update --file install/gen_deps_environment.yml
 
         - name: Install surmise
           if: matrix.os != 'macos-latest'
