@@ -7,8 +7,7 @@ authors = [{name = "Jeffrey Larson"}, {name = "Stephen Hudson"},
 dependencies = []
 description = "A Python toolkit for coordinating asynchronous and dynamic ensembles of calculations."
 name = "libensemble"
-requires-python = ">= 3.9"
-dynamic = ["version"]
+requires-python = ">=3.9"
 license = {file = "LICENSE"}
 readme = "README.rst"
 
@@ -30,6 +29,7 @@ classifiers = [
         "Topic :: Scientific/Engineering",
         "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+version = "1.4.2+dev"
 
 [project.urls]
 Documentation = "https://libensemble.readthedocs.io/en/main/"
@@ -42,7 +42,7 @@ requires = ["setuptools"]
 
 [tool.pixi.project]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64"]
+platforms = ["osx-arm64", "linux-64", "osx-64"]
 
 [tool.pixi.pypi-dependencies]
 libensemble = { path = ".", editable = true }
@@ -75,9 +75,10 @@ mpi = ">=1.0.1,<2"
 mpich = ">=4.2.3,<5"
 mpi4py = ">=4.0.1,<5"
 nlopt = ">=2.8.0,<3"
+scipy = ">=1.14.1,<2"
 
 [tool.pixi.dependencies]
-python = ">=3.13.0,<4"
+python = ">=3.9,<=3.12.7"
 pip = ">=24.3.1,<25"
 setuptools = ">=75.1.0,<76"
 pydantic = ">=2.9.2,<3"
