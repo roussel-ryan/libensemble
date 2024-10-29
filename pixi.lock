@@ -242,6 +242,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mysql-common-9.0.1-h266115a_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/mysql-libs-9.0.1-he0572af_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.5-he02047a_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/nlopt-2.8.0-py313h129aefb_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nodeenv-1.9.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/numpy-2.1.2-py313h4bf6692_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/openjpeg-2.5.2-h488ebb8_0.conda
@@ -412,6 +413,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyh9f0ad1d_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-64/ncurses-6.5-hf036a51_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-64/nlopt-2.8.0-py313h1f02af7_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nodeenv-1.9.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/numpy-2.1.2-py313hd1f2bdd_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/openjpeg-2.5.2-h7310d3a_0.conda
@@ -569,6 +571,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/mpmath-1.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyh9f0ad1d_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/ncurses-6.5-h7bae524_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/nlopt-2.8.0-py313hb5c8cdb_2.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/nodeenv-1.9.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/numpy-2.1.2-py313hab0c69d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/openjpeg-2.5.2-h9f1df11_0.conda
@@ -2810,7 +2813,7 @@ packages:
   name: libensemble
   version: 0.0.0
   path: .
-  sha256: 193f2d47d17763004a7ba11c20155a7a20a78197223611782efbfca72dd300fd
+  sha256: a6f36d20d48795d886e4bd4ad21aae215b5d67e7f1c10da33b736bad365bc6fb
   requires_python: '>=3.9'
   editable: true
 - kind: conda
@@ -4565,6 +4568,68 @@ packages:
   purls: []
   size: 822066
   timestamp: 1724658603042
+- kind: conda
+  name: nlopt
+  version: 2.8.0
+  build: py313h129aefb_2
+  build_number: 2
+  subdir: linux-64
+  url: https://conda.anaconda.org/conda-forge/linux-64/nlopt-2.8.0-py313h129aefb_2.conda
+  sha256: c633f300c472deeca23c9999434b714979c0ee0cb56874c6b8606bfb6cfefc83
+  md5: 3fa87ffc2671ceb54f699d337a61e624
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=13
+  - libstdcxx >=13
+  - numpy >=1.21,<3
+  - python >=3.13.0rc1,<3.14.0a0
+  - python_abi 3.13.* *_cp313
+  license: LGPL-2.1-or-later
+  purls:
+  - pkg:pypi/nlopt?source=hash-mapping
+  size: 402314
+  timestamp: 1725348682433
+- kind: conda
+  name: nlopt
+  version: 2.8.0
+  build: py313h1f02af7_2
+  build_number: 2
+  subdir: osx-64
+  url: https://conda.anaconda.org/conda-forge/osx-64/nlopt-2.8.0-py313h1f02af7_2.conda
+  sha256: 98340299f3fd790985d4a947730f2172dfe002aaef91eb93dcc0d3ca24138cff
+  md5: 33ab4c0ad80f0d3a2489e903870058a7
+  depends:
+  - __osx >=10.13
+  - libcxx >=17
+  - numpy >=1.21,<3
+  - python >=3.13.0rc1,<3.14.0a0
+  - python_abi 3.13.* *_cp313
+  license: LGPL-2.1-or-later
+  purls:
+  - pkg:pypi/nlopt?source=hash-mapping
+  size: 385576
+  timestamp: 1725348698854
+- kind: conda
+  name: nlopt
+  version: 2.8.0
+  build: py313hb5c8cdb_2
+  build_number: 2
+  subdir: osx-arm64
+  url: https://conda.anaconda.org/conda-forge/osx-arm64/nlopt-2.8.0-py313hb5c8cdb_2.conda
+  sha256: f2fe6cf597584a10ca77a25b0503b033a9aa61b9a296aafc89ad421d5164c5ef
+  md5: f22e15be2ff85ec0f4b8d83627295b33
+  depends:
+  - __osx >=11.0
+  - libcxx >=17
+  - numpy >=1.21,<3
+  - python >=3.13.0rc1,<3.14.0a0
+  - python >=3.13.0rc1,<3.14.0a0 *_cp313
+  - python_abi 3.13.* *_cp313
+  license: LGPL-2.1-or-later
+  purls:
+  - pkg:pypi/nlopt?source=hash-mapping
+  size: 323329
+  timestamp: 1725348737402
 - kind: conda
   name: nodeenv
   version: 1.9.1
