@@ -8,8 +8,9 @@ dependencies = []
 description = "A Python toolkit for coordinating asynchronous and dynamic ensembles of calculations."
 name = "libensemble"
 requires-python = ">= 3.9"
-dynamic = ["readme", "version"]
-license = "BSD 3-clause"
+dynamic = ["version"]
+license = {file = "LICENSE"}
+readme = "README.rst"
 
 classifiers = [
         "Development Status :: 5 - Production/Stable",
@@ -69,6 +70,7 @@ sphinx-design = ">=0.6.1,<0.7"
 numpy = ">=2.1.2,<3"
 sphinx_rtd_theme = ">=3.0.1,<4"
 sphinx-copybutton = ">=0.5.2,<0.6"
+pre-commit = ">=4.0.1,<5"
 
 [tool.pixi.dependencies]
 python = ">=3.13.0,<4"
