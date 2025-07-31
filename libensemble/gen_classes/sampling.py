@@ -15,21 +15,15 @@ __all__ = [
 class UniformSample(LibensembleGenerator):
     """
     Samples over the domain specified in the VOCS.
-
-    If multidim_single_variable is True, and `suggest_numpy` is called,
-    the output will contain an N dimensional field "x" where N is the
-    number of variables in the VOCS.
     """
 
-    def __init__(self, VOCS: VOCS, multidim_single_variable: bool = False):
-        super().__init__(VOCS)
+    def __init__(self, VOCS: VOCS, variables_mapping: dict = {}):
+        super().__init__(VOCS, variables_mapping=variables_mapping)
         self.rng = np.random.default_rng(1)
-        self.multidim_single_variable = multidim_single_variable
 
-        if self.multidim_single_variable:
-            self.np_dtype = [("x", float, (len(self.VOCS.variables.keys()),))]
-        else:
-            self.np_dtype = [(i, float) for i in self.VOCS.variables.keys()]
+        self.np_dtype = []
+        for i in self.variables_mapping.keys():
+            self.np_dtype.append((i, float, (len(self.variables_mapping[i]),)))
 
         self.n = len(list(self.VOCS.variables.keys()))
         self.lb = np.array([VOCS.variables[i].domain[0] for i in VOCS.variables])
@@ -38,15 +32,9 @@ class UniformSample(LibensembleGenerator):
     def suggest_numpy(self, n_trials):
         out = np.zeros(n_trials, dtype=self.np_dtype)
 
-        if self.multidim_single_variable:
-            out["x"] = self.rng.uniform(self.lb, self.ub, (n_trials, self.n))
-
-        else:
-            for trial in range(n_trials):
-                for field in self.VOCS.variables.keys():
-                    out[trial][field] = self.rng.uniform(
-                        self.VOCS.variables[field].domain[0], self.VOCS.variables[field].domain[1]
-                    )
+        for i in range(n_trials):
+            for key in self.variables_mapping.keys():
+                out[i][key] = self.rng.uniform(self.lb, self.ub, (self.n))
 
         return out
 
