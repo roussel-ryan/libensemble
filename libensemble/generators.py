@@ -35,6 +35,7 @@ class LibensembleGenerator(Generator):
         persis_info: dict = {},
         gen_specs: dict = {},
         libE_info: dict = {},
+        variables_mapping: dict = {},
         **kwargs,
     ):
         self.VOCS = VOCS
@@ -42,7 +43,7 @@ class LibensembleGenerator(Generator):
         self.gen_specs = gen_specs
         self.libE_info = libE_info
 
-        self.variables_mapping = kwargs.get("variables_mapping", {})
+        self.variables_mapping = variables_mapping
         if not self.variables_mapping:
             self.variables_mapping = {"x": list(self.VOCS.variables.keys()), "f": list(self.VOCS.objectives.keys())}
 
