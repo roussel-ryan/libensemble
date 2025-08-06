@@ -4,7 +4,6 @@ import time
 from typing import List
 
 import numpy as np
-from generator_standard import Generator
 from generator_standard.vocs import VOCS
 from gpcam import GPOptimizer as GP
 from numpy import typing as npt
@@ -18,7 +17,6 @@ from libensemble.gen_funcs.persistent_gpCAM import (
     _read_testpoints,
 )
 from libensemble.generators import LibensembleGenerator
-from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
 
 __all__ = [
     "GP_CAM",
@@ -41,32 +39,32 @@ class GP_CAM(LibensembleGenerator):
     (relative to the simulation evaluation time) for some use cases.
     """
 
-    def _initialize_gpCAM(self, user_specs):
-        """Extract user params"""
-        # self.b = user_specs["batch_size"]
-        self.lb = np.array(user_specs["lb"])
-        self.ub = np.array(user_specs["ub"])
+    def __init__(self, VOCS: VOCS, ask_max_iter: int = 10, *args, **kwargs):
+
+        self.VOCS = VOCS
+        self.rng = np.random.default_rng(1)
+
+        self._validate_vocs(VOCS)
+
+        self.lb = np.array([VOCS.variables[i].domain[0] for i in VOCS.variables])
+        self.ub = np.array([VOCS.variables[i].domain[1] for i in VOCS.variables])
         self.n = len(self.lb)  # dimension
+        self.all_x = np.empty((0, self.n))
+        self.all_y = np.empty((0, 1))
         assert isinstance(self.n, int), "Dimension must be an integer"
         assert isinstance(self.lb, np.ndarray), "lb must be a numpy array"
         assert isinstance(self.ub, np.ndarray), "ub must be a numpy array"
-        self.all_x = np.empty((0, self.n))
-        self.all_y = np.empty((0, 1))
-        np.random.seed(0)
+        self.variables_mapping = {}
 
-    def __init__(self, H, persis_info, gen_specs, libE_info=None):
-        self.H = H  # Currently not used - could be used for an H0
-        self.persis_info = persis_info
-        self.gen_specs = gen_specs
-        self.libE_info = libE_info
-
-        self.U = self.gen_specs["user"]
-        self._initialize_gpCAM(self.U)
-        self.rng = self.persis_info["rand_stream"]
+        self.dtype = [("x", float, (self.n))]
 
         self.my_gp = None
         self.noise = 1e-8  # 1e-12
-        self.ask_max_iter = self.gen_specs["user"].get("ask_max_iter") or 10
+        self.ask_max_iter = ask_max_iter
+        super().__init__(VOCS, *args, **kwargs)
+
+    def _validate_vocs(self, VOCS):
+        assert len(self.VOCS.variables), "VOCS must contain variables."
 
     def suggest_numpy(self, n_trials: int) -> npt.NDArray:
         if self.all_x.shape[0] == 0:
@@ -81,7 +79,7 @@ class GP_CAM(LibensembleGenerator):
                 max_iter=self.ask_max_iter,  # Larger takes longer. gpCAM default is 20.
             )["x"]
             print(f"Ask time:{time.time() - start}")
-        H_o = np.zeros(n_trials, dtype=self.gen_specs["out"])
+        H_o = np.zeros(n_trials, dtype=self.dtype)
         H_o["x"] = self.x_new
         return H_o
 
@@ -105,36 +103,6 @@ class GP_CAM(LibensembleGenerator):
             self.my_gp.train()
 
 
-class Standard_GP_CAM(Generator):
-
-    def __init__(self, VOCS: VOCS, ask_max_iter: int = 10):
-        self.VOCS = VOCS
-        self.rng = np.random.default_rng(1)
-
-        self._validate_vocs(VOCS)
-
-        self.lb = np.array([VOCS.variables[i].domain[0] for i in VOCS.variables])
-        self.ub = np.array([VOCS.variables[i].domain[1] for i in VOCS.variables])
-        self.n = len(self.lb)  # dimension
-        assert isinstance(self.n, int), "Dimension must be an integer"
-        assert isinstance(self.lb, np.ndarray), "lb must be a numpy array"
-        assert isinstance(self.ub, np.ndarray), "ub must be a numpy array"
-        self.variables_mapping = {}
-
-        self.gpcam = GP_CAM(
-            [], {"rand_stream": self.rng}, {"out": [("x", float, (self.n))], "user": {"lb": self.lb, "ub": self.ub}}, {}
-        )
-
-    def _validate_vocs(self, VOCS):
-        assert len(self.VOCS.variables), "VOCS must contain variables."
-
-    def suggest(self, n_trials: int) -> list[dict]:
-        return np_to_list_dicts(self.gpcam.suggest_numpy(n_trials))
-
-    def ingest(self, calc_in: dict) -> None:
-        self.gpcam.ingest_numpy(list_dicts_to_np(calc_in))
-
-
 class GP_CAM_Covar(GP_CAM):
     """
     This generation function constructs a global surrogate of `f` values.
@@ -144,12 +112,14 @@ class GP_CAM_Covar(GP_CAM):
     function to find sample points.
     """
 
-    def __init__(self, H, persis_info, gen_specs, libE_info=None):
-        super().__init__(H, persis_info, gen_specs, libE_info)
-        self.test_points = _read_testpoints(self.U)
+    def __init__(self, VOCS, test_points_file: str = "", use_grid: bool = False, *args, **kwargs):
+        super().__init__(VOCS, *args, **kwargs)
+        self.test_points = _read_testpoints({"test_points_file": test_points_file})
         self.x_for_var = None
         self.var_vals = None
-        if self.U.get("use_grid"):
+        self.use_grid = use_grid
+        self.persis_info = {}
+        if self.use_grid:
             self.num_points = 10
             self.x_for_var = _generate_mesh(self.lb, self.ub, self.num_points)
             self.r_low_init, self.r_high_init = _calculate_grid_distances(self.lb, self.ub, self.num_points)
@@ -158,7 +128,7 @@ class GP_CAM_Covar(GP_CAM):
         if self.all_x.shape[0] == 0:
             x_new = self.rng.uniform(self.lb, self.ub, (n_trials, self.n))
         else:
-            if not self.U.get("use_grid"):
+            if not self.use_grid:
                 x_new = self.x_for_var[np.argsort(self.var_vals)[-n_trials:]]
             else:
                 r_high = self.r_high_init
@@ -174,14 +144,14 @@ class GP_CAM_Covar(GP_CAM):
                     r_cand = (r_high + r_low) / 2.0
 
         self.x_new = x_new
-        H_o = np.zeros(n_trials, dtype=self.gen_specs["out"])
+        H_o = np.zeros(n_trials, dtype=self.dtype)
         H_o["x"] = self.x_new
         return H_o
 
     def ingest_numpy(self, calc_in: npt.NDArray):
         if calc_in is not None:
             super().tell_numpy(calc_in)
-            if not self.U.get("use_grid"):
+            if not self.use_grid:
                 n_trials = len(self.y_new)
                 self.x_for_var = self.rng.uniform(self.lb, self.ub, (10 * n_trials, self.n))
 
