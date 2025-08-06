@@ -63,7 +63,7 @@ if __name__ == "__main__":
         },
     }
 
-    vocs = VOCS(variables={"x0": (-3, 3), "x1": (-2, 2), "x2": (-1, 1), "x3": (-1, 1)}, objectives={"f": "MINIMIZE"})
+    vocs = VOCS(variables={"x0": [-3, 3], "x1": [-2, 2], "x2": [-1, 1], "x3": [-1, 1]}, objectives={"f": "MINIMIZE"})
 
     alloc_specs = {"alloc_f": alloc_f}
 
