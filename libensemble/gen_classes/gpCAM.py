@@ -24,10 +24,6 @@ __all__ = [
 ]
 
 
-# Note - batch size is set in wrapper currently - and passed to ask as n_trials.
-# To support empty ask(), add batch_size back in here.
-
-
 # Equivalent to function persistent_gpCAM_ask_tell
 class GP_CAM(LibensembleGenerator):
     """
