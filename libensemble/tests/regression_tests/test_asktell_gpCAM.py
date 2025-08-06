@@ -17,7 +17,6 @@ setup.
 # TESTSUITE_COMMS: mpi local
 # TESTSUITE_NPROCS: 4
 # TESTSUITE_EXTRA: true
-# TESTSUITE_EXCLUDE: true
 
 import sys
 import warnings
