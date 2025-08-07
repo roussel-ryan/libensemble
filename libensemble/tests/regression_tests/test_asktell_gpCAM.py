@@ -95,6 +95,7 @@ if __name__ == "__main__":
         # Perform the run
         H, persis_info, flag = libE(sim_specs, gen_specs, exit_criteria, {}, alloc_specs, libE_specs)
         if is_manager:
+            print(len(np.unique(H["gen_ended_time"])), num_batches)
             assert len(np.unique(H["gen_ended_time"])) == num_batches
 
             save_libE_output(H, persis_info, __file__, nworkers)
