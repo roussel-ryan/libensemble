@@ -108,7 +108,7 @@ class GP_CAM_Covar(GP_CAM):
     function to find sample points.
     """
 
-    def __init__(self, VOCS, test_points_file: str = "", use_grid: bool = False, *args, **kwargs):
+    def __init__(self, VOCS, test_points_file: str = None, use_grid: bool = False, *args, **kwargs):
         super().__init__(VOCS, *args, **kwargs)
         self.test_points = _read_testpoints({"test_points_file": test_points_file})
         self.x_for_var = None
