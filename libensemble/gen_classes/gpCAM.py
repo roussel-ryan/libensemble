@@ -146,7 +146,7 @@ class GP_CAM_Covar(GP_CAM):
 
     def ingest_numpy(self, calc_in: npt.NDArray):
         if calc_in is not None:
-            super().tell_numpy(calc_in)
+            super().ingest_numpy(calc_in)
             if not self.use_grid:
                 n_trials = len(self.y_new)
                 self.x_for_var = self.rng.uniform(self.lb, self.ub, (10 * n_trials, self.n))
