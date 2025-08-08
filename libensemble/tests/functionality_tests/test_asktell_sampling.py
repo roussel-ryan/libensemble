@@ -14,13 +14,40 @@ The number of concurrent evaluations of the objective function will be 4-1=3.
 # TESTSUITE_NPROCS: 2 4
 
 import numpy as np
+from generator_standard import Generator
 from generator_standard.vocs import VOCS
 
 # Import libEnsemble items for this test
 from libensemble.alloc_funcs.start_only_persistent import only_persistent_gens as alloc_f
-from libensemble.gen_classes.sampling import StandardSample, UniformSample
+from libensemble.gen_classes.sampling import UniformSample
 from libensemble.libE import libE
 from libensemble.tools import add_unique_random_streams, parse_args
+
+
+class StandardSample(Generator):
+    """
+    This sampler only adheres to the complete standard interface, with no additional numpy methods.
+    """
+
+    def __init__(self, VOCS: VOCS):
+        self.VOCS = VOCS
+        self.rng = np.random.default_rng(1)
+        super().__init__(VOCS)
+
+    def _validate_vocs(self, VOCS):
+        assert len(self.VOCS.variables), "VOCS must contain variables."
+
+    def suggest(self, n_trials):
+        output = []
+        for _ in range(n_trials):
+            trial = {}
+            for key in self.VOCS.variables.keys():
+                trial[key] = self.rng.uniform(self.VOCS.variables[key].domain[0], self.VOCS.variables[key].domain[1])
+            output.append(trial)
+        return output
+
+    def ingest(self, calc_in):
+        pass  # random sample so nothing to tell
 
 
 def sim_f(In):
