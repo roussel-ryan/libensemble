@@ -52,7 +52,7 @@ if __name__ == "__main__":
     }
 
     variables = {"x0": [-3, 3], "x1": [-2, 2]}
-    objectives = {"edge": "EXPLORE"}
+    objectives = {"energy": "EXPLORE"}
 
     variables_mapping = {"x": ["x0", "x1"]}  # for numpy suggests, map these variables to a multidim "x"
 
