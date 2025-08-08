@@ -25,9 +25,7 @@ import numpy as np
 from generator_standard.vocs import VOCS
 
 from libensemble.alloc_funcs.start_only_persistent import only_persistent_gens as alloc_f
-
-# from libensemble.gen_classes.gpCAM import GP_CAM, GP_CAM_Covar
-from libensemble.gen_classes.sampling import UniformSample
+from libensemble.gen_classes.gpCAM import GP_CAM, GP_CAM_Covar
 
 # Import libEnsemble items for this test
 from libensemble.libE import libE
@@ -58,8 +56,8 @@ if __name__ == "__main__":
     gen_specs = {
         "persis_in": ["x", "f", "sim_id"],
         "out": [("x", float, (n,))],
+        "batch_size": batch_size,
         "user": {
-            "batch_size": batch_size,
             "lb": np.array([-3, -2, -1, -1]),
             "ub": np.array([3, 2, 1, 1]),
         },
@@ -69,8 +67,7 @@ if __name__ == "__main__":
 
     alloc_specs = {"alloc_f": alloc_f}
 
-    # gen = GP_CAM_Covar(vocs)
-    gen = UniformSample(vocs)
+    gen = GP_CAM_Covar(vocs)
 
     for inst in range(3):
         if inst == 0:
@@ -80,22 +77,20 @@ if __name__ == "__main__":
             libE_specs["save_every_k_gens"] = 150
             libE_specs["H_file_prefix"] = "gpCAM_nongrid"
         if inst == 1:
-            # gen = GP_CAM_Covar(vocs, use_grid=True, test_points_file="gpCAM_nongrid_after_gen_150.npy")
+            gen = GP_CAM_Covar(vocs, use_grid=True, test_points_file="gpCAM_nongrid_after_gen_150.npy")
             gen_specs["generator"] = gen
             libE_specs["final_gen_send"] = True
             del libE_specs["H_file_prefix"]
             del libE_specs["save_every_k_gens"]
         elif inst == 2:
-            # gen = GP_CAM(vocs, ask_max_iter=1)
+            gen = GP_CAM(vocs, ask_max_iter=1)
             gen_specs["generator"] = gen
-            # gen_specs["generator"] = GP_CAM(vocs, ask_max_iter=1)
             num_batches = 3  # Few because the ask_tell gen can be slow
             exit_criteria = {"sim_max": num_batches * batch_size, "wallclock_max": 300}
 
         # Perform the run
         H, persis_info, flag = libE(sim_specs, gen_specs, exit_criteria, {}, alloc_specs, libE_specs)
         if is_manager:
-            print(len(np.unique(H["gen_ended_time"])), num_batches)
             assert len(np.unique(H["gen_ended_time"])) == num_batches
 
             save_libE_output(H, persis_info, __file__, nworkers)

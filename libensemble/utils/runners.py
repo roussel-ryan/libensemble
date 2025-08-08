@@ -166,7 +166,8 @@ class StandardGenRunner(Runner):
 class LibensembleGenRunner(StandardGenRunner):
     def _get_initial_suggest(self, libE_info) -> npt.NDArray:
         """Get initial batch from generator based on generator type"""
-        H_out = self.gen.suggest_numpy(libE_info["batch_size"])  # OR GEN SPECS INITIAL BATCH SIZE
+        initial_batch = self.specs.get("initial_batch_size") or self.specs.get("batch_size") or libE_info["batch_size"]
+        H_out = self.gen.suggest_numpy(initial_batch)
         return H_out
 
     def _get_points_updates(self, batch_size: int) -> (npt.NDArray, list):
