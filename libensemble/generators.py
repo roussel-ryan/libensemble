@@ -45,9 +45,11 @@ class LibensembleGenerator(Generator):
 
         self.variables_mapping = variables_mapping
         if not self.variables_mapping:
-            if len(list(self.VOCS.variables.keys())) > 1:
+            if len(list(self.VOCS.variables.keys())) > 1 or list(self.VOCS.variables.keys())[0] != "x":
                 self.variables_mapping["x"] = list(self.VOCS.variables.keys())
-            if len(list(self.VOCS.objectives.keys())) > 1:  # e.g. {"f": ["f"]} doesn't need mapping
+            if (
+                len(list(self.VOCS.objectives.keys())) > 1 or list(self.VOCS.objectives.keys())[0] != "f"
+            ):  # e.g. {"f": ["f"]} doesn't need mapping
                 self.variables_mapping["f"] = list(self.VOCS.objectives.keys())
 
         if len(kwargs) > 0:  # so user can specify gen-specific parameters as kwargs to constructor
