@@ -35,10 +35,10 @@ class GP_CAM(LibensembleGenerator):
     (relative to the simulation evaluation time) for some use cases.
     """
 
-    def __init__(self, VOCS: VOCS, ask_max_iter: int = 10, *args, **kwargs):
+    def __init__(self, VOCS: VOCS, ask_max_iter: int = 10, random_seed: int = 1, *args, **kwargs):
 
         self.VOCS = VOCS
-        self.rng = np.random.default_rng(1)
+        self.rng = np.random.default_rng(random_seed)
 
         self._validate_vocs(VOCS)
 
@@ -50,7 +50,6 @@ class GP_CAM(LibensembleGenerator):
         assert isinstance(self.n, int), "Dimension must be an integer"
         assert isinstance(self.lb, np.ndarray), "lb must be a numpy array"
         assert isinstance(self.ub, np.ndarray), "ub must be a numpy array"
-        self.variables_mapping = {}
 
         self.dtype = [("x", float, (self.n))]
 

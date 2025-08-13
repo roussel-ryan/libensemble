@@ -81,21 +81,23 @@ if __name__ == "__main__":
     variables = {"x0": [-3, 3], "x1": [-2, 2]}
     objectives = {"energy": "EXPLORE"}
 
-    variables_mapping = {"x": ["x0", "x1"]}  # for numpy suggests, map these variables to a multidim "x"
-
     vocs = VOCS(variables=variables, objectives=objectives)
 
     alloc_specs = {"alloc_f": alloc_f}
     exit_criteria = {"gen_max": 201}
     persis_info = add_unique_random_streams({}, nworkers + 1, seed=1234)
 
-    for test in range(2):
+    for test in range(3):
         if test == 0:
             generator = StandardSample(vocs)
 
         elif test == 1:
             persis_info["num_gens_started"] = 0
-            generator = UniformSample(vocs, variables_mapping=variables_mapping)
+            generator = UniformSample(vocs)
+
+        elif test == 2:
+            persis_info["num_gens_started"] = 0
+            generator = UniformSample(vocs, variables_mapping={"x": ["x0", "x1"], "f": ["energy"]})
 
         gen_specs["generator"] = generator
         H, persis_info, flag = libE(

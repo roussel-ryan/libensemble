@@ -19,36 +19,6 @@ def _check_conversion(H, npp, mapping={}):
             raise TypeError(f"Unhandled or mismatched types in field {field}: {type(H[field])} vs {type(npp[field])}")
 
 
-# def test_asktell_sampling_and_utils():
-#     from generator_standard.vocs import VOCS
-
-#     from libensemble.gen_classes.sampling import UniformSample
-
-#     variables = {"x0": [-3, 3], "x1": [-2, 2]}
-#     objectives = {"f": "EXPLORE"}
-
-#     vocs = VOCS(variables=variables, objectives=objectives)
-
-#     # Test initialization with libensembley parameters
-#     gen = UniformSample(vocs)
-#     assert len(gen.suggest(10)) == 10
-
-#     out = gen.suggest(3)  # needs to get dicts, 2d+ arrays need to be flattened
-
-#     assert all([len(x) == 2 for x in out])  # np_to_list_dicts is now tested
-
-#     variables = {"core": [-3, 3], "edge": [-2, 2]}
-#     objectives = {"energy": "EXPLORE"}
-
-#     vocs = VOCS(variables=variables, objectives=objectives)
-
-#     gen = UniformSample(vocs)
-#     out = gen.suggest(1)
-#     assert len(out) == 1
-#     assert out[0].get("core")
-#     assert out[0].get("edge")
-
-
 def test_awkward_list_dict():
     from libensemble.utils.misc import list_dicts_to_np
 
@@ -123,6 +93,5 @@ def test_awkward_H():
 
 
 if __name__ == "__main__":
-    # test_asktell_sampling_and_utils()
     test_awkward_list_dict()
     test_awkward_H()
