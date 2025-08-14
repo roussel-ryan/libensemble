@@ -59,6 +59,7 @@ class GP_CAM(LibensembleGenerator):
 
     def _validate_vocs(self, VOCS):
         assert len(self.VOCS.variables), "VOCS must contain variables."
+        assert len(self.VOCS.objectives), "VOCS must contain at least one objective."
 
     def suggest_numpy(self, n_trials: int) -> npt.NDArray:
         if self.all_x.shape[0] == 0:

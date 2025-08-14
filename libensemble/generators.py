@@ -24,8 +24,17 @@ class LibensembleGenerator(Generator):
     ``suggest/ingest`` methods communicate lists of dictionaries, like the standard.
     ``suggest_numpy/ingest_numpy`` methods communicate numpy arrays containing the same data.
 
-    Providing ``variables_mapping`` is optional but highly recommended to map the internal variable names to
-    user-defined ones. For instance, ``variables_mapping = {"x": ["core", "edge", "beam"], "f": ["energy"]}``.
+    .. note::
+        Most LibensembleGenerator instances operate on "x" for variables and "f" for objectives internally.
+        By default we map "x" to the VOCS variables and "f" to the VOCS objectives, which works for most use cases.
+        If a given generator iterates internally over multiple, multi-dimensional variables or objectives,
+        then providing a custom ``variables_mapping`` is recommended.
+
+        For instance:
+            ``variables_mapping = {"x": ["core", "edge"],
+                                   "y": ["mirror-x", "mirror-y"],
+                                   "f": ["energy"],
+                                   "grad": ["grad_x", "grad_y"]}``.
     """
 
     def __init__(
