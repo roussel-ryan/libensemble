@@ -37,7 +37,7 @@ class GP_CAM(LibensembleGenerator):
 
     def __init__(self, VOCS: VOCS, ask_max_iter: int = 10, random_seed: int = 1, *args, **kwargs):
 
-        self.VOCS = VOCS
+        super().__init__(VOCS, *args, **kwargs)
         self.rng = np.random.default_rng(random_seed)
 
         self._validate_vocs(VOCS)
@@ -56,7 +56,6 @@ class GP_CAM(LibensembleGenerator):
         self.my_gp = None
         self.noise = 1e-8  # 1e-12
         self.ask_max_iter = ask_max_iter
-        super().__init__(VOCS, *args, **kwargs)
 
     def _validate_vocs(self, VOCS):
         assert len(self.VOCS.variables), "VOCS must contain variables."

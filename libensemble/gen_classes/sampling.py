@@ -15,9 +15,9 @@ class UniformSample(LibensembleGenerator):
     Samples over the domain specified in the VOCS.
     """
 
-    def __init__(self, VOCS: VOCS, *args, **kwargs):
+    def __init__(self, VOCS: VOCS, random_seed: int = 1, *args, **kwargs):
         super().__init__(VOCS, *args, **kwargs)
-        self.rng = np.random.default_rng(1)
+        self.rng = np.random.default_rng(random_seed)
 
         self.n = len(list(self.VOCS.variables.keys()))
         self.np_dtype = [("x", float, (self.n))]
