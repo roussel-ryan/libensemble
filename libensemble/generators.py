@@ -47,6 +47,7 @@ class LibensembleGenerator(Generator):
         variables_mapping: dict = {},
         **kwargs,
     ):
+        self._validate_vocs(VOCS)
         self.VOCS = VOCS
         self.History = History
         self.gen_specs = gen_specs

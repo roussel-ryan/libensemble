@@ -40,8 +40,6 @@ class GP_CAM(LibensembleGenerator):
         super().__init__(VOCS, *args, **kwargs)
         self.rng = np.random.default_rng(random_seed)
 
-        self._validate_vocs(VOCS)
-
         self.lb = np.array([VOCS.variables[i].domain[0] for i in VOCS.variables])
         self.ub = np.array([VOCS.variables[i].domain[1] for i in VOCS.variables])
         self.n = len(self.lb)  # dimension
