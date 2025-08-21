@@ -176,7 +176,14 @@ class PersistentGenInterfacer(LibensembleGenerator):
         else:
             self.running_gen_f.send(tag, None)
 
-    def finalize(self, results: npt.NDArray = None) -> (npt.NDArray, dict, int):
+    # SH TODO: This violates standard - finalize takes no arguments (and returns nothing)
+    def finalize(self, results: npt.NDArray = None) -> None:
         """Send any last results to the generator, and it to close down."""
         self.ingest_numpy(results, PERSIS_STOP)  # conversion happens in ingest
+    
+    # SH TODO: Decide name (get_data/export_data etc) and implement higher up in the class hierarchy?
+    # SH TODO: Options to unmap variables/objectives?
+    # SH TODO: Options to export as pandas dataframe? or list of dicts?
+    def export(self) -> (npt.NDArray, dict, int):
+        """Return the generator's state."""
         return self.running_gen_f.result()
