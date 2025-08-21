@@ -31,19 +31,26 @@ class APOSMM(PersistentGenInterfacer):
         self.n = len(list(self.VOCS.variables.keys()))
 
         gen_specs["user"] = {}
-        gen_specs["user"]["lb"] = np.array([vocs.variables[i].domain[0] for i in vocs.variables])
-        gen_specs["user"]["ub"] = np.array([vocs.variables[i].domain[1] for i in vocs.variables])
+
+        super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
+
+        # Set bounds using the correct x mapping
+        x_mapping = self.variables_mapping["x"]
+        self.gen_specs["user"]["lb"] = np.array([vocs.variables[var].domain[0] for var in x_mapping])
+        self.gen_specs["user"]["ub"] = np.array([vocs.variables[var].domain[1] for var in x_mapping])
 
         if not gen_specs.get("out"):  # gen_specs never especially changes for aposmm even as the problem varies
+            x_size = len(self.variables_mapping.get("x", [self.n]))
+            x_on_cube_size = len(self.variables_mapping.get("x_on_cube", [self.n]))
+            print(f'x_size: {x_size}, x_on_cube_size: {x_on_cube_size}')
             gen_specs["out"] = [
-                ("x", float, self.n),
-                ("x_on_cube", float, self.n),
+                ("x", float, x_size),
+                ("x_on_cube", float, x_on_cube_size),
                 ("sim_id", int),
                 ("local_min", bool),
                 ("local_pt", bool),
             ]
             gen_specs["persis_in"] = ["x", "f", "local_pt", "sim_id", "sim_ended", "x_on_cube", "local_min"]
-        super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
 
         if not self.persis_info.get("nworkers"):
             self.persis_info["nworkers"] = kwargs.get("nworkers", gen_specs["user"].get("max_active_runs", 4))
