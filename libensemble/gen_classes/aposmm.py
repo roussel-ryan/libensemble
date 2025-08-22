@@ -12,7 +12,56 @@ from libensemble.message_numbers import EVAL_GEN_TAG, PERSIS_STOP
 
 class APOSMM(PersistentGenInterfacer):
     """
-    Standalone object-oriented APOSMM generator
+    APOSMM coordinates multiple local optimization runs, dramatically reducing time for
+    discovering multiple minima on parallel systems.
+
+    This *generator* adheres to the `Generator Standard <https://github.com/campa-consortium/generator_standard>`_.
+
+    .. seealso::
+
+        `https://doi.org/10.1007/s12532-017-0131-4 <https://doi.org/10.1007/s12532-017-0131-4>`_
+
+    Parameters
+    ----------
+    vocs: VOCS
+        The VOCS object, adhering to the VOCS interface from the Generator Standard.
+
+    History: npt.NDArray = []
+        An optional history of previously evaluated points.
+
+    initial_sample_size: int = 100
+        Number of uniformly sampled points
+        to be evaluated before starting the localopt runs. Can be
+        zero if no additional sampling is desired, but if zero there must be past values
+        provided in the History.
+
+    sample_points: npt.NDArray = None
+        Points to be sampled (original domain).
+        If more sample points are needed by APOSMM during the course of the
+        optimization, points will be drawn uniformly over the domain.
+
+    localopt_method: str = "LN_BOBYQA"
+        The local optimization method to use.
+
+    rk_const: float = None
+        Multiplier in front of the ``r_k`` value.
+        If not provided, it will be set to ``0.5 * ((gamma(1 + (n / 2)) * 5) ** (1 / n)) / sqrt(pi)``
+
+    xtol_abs: float = 1e-6
+        Localopt method's convergence tolerance.
+
+    ftol_abs: float = 1e-6
+        Localopt method's convergence tolerance.
+
+    dist_to_bound_multiple: float = 0.5
+        What fraction of the distance to the nearest boundary should the initial
+        step size be in localopt runs.
+
+    max_active_runs: int = 6
+        Bound on number of runs APOSMM is advancing.
+
+    random_seed: int = 1
+        Seed for the random number generator.
     """
 
     def __init__(
