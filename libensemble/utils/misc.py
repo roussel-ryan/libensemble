@@ -186,6 +186,52 @@ def _is_singledim(selection: npt.NDArray) -> bool:
     return (hasattr(selection, "__len__") and len(selection) == 1) or selection.shape == ()
 
 
+def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
+    """Convert numpy array with mapped fields back to individual scalar fields.
+    
+    Parameters
+    ----------
+    array : npt.NDArray
+        Input array with mapped fields like x = [x0, x1, x2]
+    mapping : dict
+        Mapping from field names to variable names
+        
+    Returns
+    -------
+    npt.NDArray
+        Array with unmapped fields like x0, x1, x2 as individual scalars
+    """
+    if not mapping or array is None:
+        return array
+        
+    # Create new dtype with unmapped fields
+    new_fields = []
+    for field in array.dtype.names:
+        if field in mapping:
+            for var_name in mapping[field]:
+                new_fields.append((var_name, array[field].dtype.type))
+        elif len(array[field].shape) <= 1:
+            new_fields.append((field, array[field].dtype))
+    
+    unmapped_array = np.zeros(len(array), dtype=new_fields)
+    
+    for field in array.dtype.names:
+        if field in mapping:
+            # Unmap array fields
+            if len(array[field].shape) == 1:
+                # Single dimension array (e.g., one variable mapped to x)
+                unmapped_array[mapping[field][0]] = array[field]
+            else:
+                # Multi-dimension array
+                for i, var_name in enumerate(mapping[field]):
+                    unmapped_array[var_name] = array[field][:, i]
+        elif len(array[field].shape) <= 1:
+            # Copy scalar or 1D non-mapped fields
+            unmapped_array[field] = array[field]
+    
+    return unmapped_array
+
+
 def np_to_list_dicts(array: npt.NDArray, mapping: dict = {}) -> List[dict]:
     if array is None:
         return None

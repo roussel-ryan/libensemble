@@ -10,7 +10,7 @@ from libensemble.comms.comms import QCommProcess  # , QCommThread
 from libensemble.executors import Executor
 from libensemble.message_numbers import EVAL_GEN_TAG, PERSIS_STOP
 from libensemble.tools.tools import add_unique_random_streams
-from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
+from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts, unmap_numpy_array
 
 
 class GeneratorNotStartedException(Exception):
@@ -182,18 +182,31 @@ class PersistentGenInterfacer(LibensembleGenerator):
         self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
         self.gen_result = self.running_gen_f.result()
     
-    # SH TODO: Options to unmap variables/objectives?
-    def export(self) -> tuple[npt.NDArray | None, dict | None, int | None]:
+    def export(self, user_fields: bool = False) -> tuple[npt.NDArray | None, dict | None, int | None]:
         """Return the generator's results
+        
+        Parameters
+        ----------
+        user_fields : bool, optional
+            If True, return local_H with variables unmapped from arrays back to individual fields.
+            Default is False.
         
         Returns
         -------
         local_H : npt.NDArray
-            Generator history array.
+            Generator history array (unmapped if user_fields=True).
         persis_info : dict
             Persistent information.
         tag : int
             Status flag (e.g., FINISHED_PERSISTENT_GEN_TAG).
         """
+        if not self.gen_result:
+            return (None, None, None)
+            
+        local_H, persis_info, tag = self.gen_result
         
-        return self.gen_result or (None, None, None)
+        if user_fields and local_H is not None and self.variables_mapping:
+            unmapped_H = unmap_numpy_array(local_H, self.variables_mapping)
+            return (unmapped_H, persis_info, tag)
+        
+        return self.gen_result
