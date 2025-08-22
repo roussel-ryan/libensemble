@@ -119,6 +119,7 @@ class PersistentGenInterfacer(LibensembleGenerator):
         self.History = History
         self.libE_info = libE_info
         self.running_gen_f = None
+        self.gen_result = None
 
     def setup(self) -> None:
         """Must be called once before calling suggest/ingest. Initializes the background thread."""
@@ -176,14 +177,23 @@ class PersistentGenInterfacer(LibensembleGenerator):
         else:
             self.running_gen_f.send(tag, None)
 
-    # SH TODO: This violates standard - finalize takes no arguments (and returns nothing)
-    def finalize(self, results: npt.NDArray = None) -> None:
-        """Send any last results to the generator, and it to close down."""
-        self.ingest_numpy(results, PERSIS_STOP)  # conversion happens in ingest
+    def finalize(self) -> None:
+        """Stop the generator process and store the returned data."""
+        self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
+        self.gen_result = self.running_gen_f.result()
     
-    # SH TODO: Decide name (get_data/export_data etc) and implement higher up in the class hierarchy?
     # SH TODO: Options to unmap variables/objectives?
-    # SH TODO: Options to export as pandas dataframe? or list of dicts?
-    def export(self) -> (npt.NDArray, dict, int):
-        """Return the generator's state."""
-        return self.running_gen_f.result()
+    def export(self) -> tuple[npt.NDArray | None, dict | None, int | None]:
+        """Return the generator's results
+        
+        Returns
+        -------
+        local_H : npt.NDArray
+            Generator history array.
+        persis_info : dict
+            Persistent information.
+        tag : int
+            Status flag (e.g., FINISHED_PERSISTENT_GEN_TAG).
+        """
+        
+        return self.gen_result or (None, None, None)
