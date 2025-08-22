@@ -27,6 +27,7 @@ class APOSMM(PersistentGenInterfacer):
         ftol_abs: float = 1e-6,
         dist_to_bound_multiple: float = 0.5,
         max_active_runs: int = 6,
+        random_seed: int = 1,
         **kwargs,
     ) -> None:
 
@@ -35,7 +36,7 @@ class APOSMM(PersistentGenInterfacer):
         self.VOCS = vocs
 
         gen_specs = {}
-        persis_info = {}
+        persis_info = {"1": np.random.default_rng(random_seed)}
         libE_info = {}
         gen_specs["gen_f"] = aposmm
         self.n = len(list(self.VOCS.variables.keys()))
@@ -48,7 +49,7 @@ class APOSMM(PersistentGenInterfacer):
         gen_specs["user"]["ub"] = np.array([vocs.variables[i].domain[1] for i in vocs.variables])
 
         gen_specs["user"]["initial_sample_size"] = initial_sample_size
-        if sample_points:
+        if sample_points is not None:
             gen_specs["user"]["sample_points"] = sample_points
         gen_specs["user"]["localopt_method"] = localopt_method
         gen_specs["user"]["rk_const"] = rk_const
