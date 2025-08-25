@@ -218,13 +218,8 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
     for field in array.dtype.names:
         if field in mapping:
             # Unmap array fields
-            if len(array[field].shape) == 1:
-                # Single dimension array (e.g., one variable mapped to x)
-                unmapped_array[mapping[field][0]] = array[field]
-            else:
-                # Multi-dimension array
-                for i, var_name in enumerate(mapping[field]):
-                    unmapped_array[var_name] = array[field][:, i]
+            for i, var_name in enumerate(mapping[field]):
+                unmapped_array[var_name] = array[field][:, i]
         elif len(array[field].shape) <= 1:
             # Copy scalar or 1D non-mapped fields
             unmapped_array[field] = array[field]
