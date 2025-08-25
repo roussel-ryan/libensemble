@@ -210,8 +210,10 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
         if field in mapping:
             for var_name in mapping[field]:
                 new_fields.append((var_name, array[field].dtype.type))
-        elif len(array[field].shape) <= 1:
-            new_fields.append((field, array[field].dtype))
+        else:
+            # Preserve the original field structure including per-row shape
+            field_dtype = array.dtype[field]
+            new_fields.append((field, field_dtype))
     
     unmapped_array = np.zeros(len(array), dtype=new_fields)
     
@@ -220,14 +222,14 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
             # Unmap array fields
             for i, var_name in enumerate(mapping[field]):
                 unmapped_array[var_name] = array[field][:, i]
-        elif len(array[field].shape) <= 1:
-            # Copy scalar or 1D non-mapped fields
+        else:
+            # Copy non-mapped fields
             unmapped_array[field] = array[field]
     
     return unmapped_array
 
 
-def np_to_list_dicts(array: npt.NDArray, mapping: dict = {}) -> List[dict]:
+def np_to_list_dicts(array: npt.NDArray, mapping: dict = {}, allow_arrays: bool = False) -> List[dict]:
     if array is None:
         return None
     out = []
@@ -237,9 +239,8 @@ def np_to_list_dicts(array: npt.NDArray, mapping: dict = {}) -> List[dict]:
 
         for field in row.dtype.names:
             # non-string arrays, lists, etc.
-
             if field not in list(mapping.keys()):
-                if _is_multidim(row[field]):
+                if _is_multidim(row[field]) and not allow_arrays:
                     for i, x in enumerate(row[field]):
                         new_dict[field + str(i)] = x
 
