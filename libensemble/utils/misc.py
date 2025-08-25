@@ -220,8 +220,13 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
     for field in array.dtype.names:
         if field in mapping:
             # Unmap array fields
-            for i, var_name in enumerate(mapping[field]):
-                unmapped_array[var_name] = array[field][:, i]
+            if len(array[field].shape) == 1:
+                # Scalar field mapped to single variable
+                unmapped_array[mapping[field][0]] = array[field]
+            else:
+                # Multi-dimensional field
+                for i, var_name in enumerate(mapping[field]):
+                    unmapped_array[var_name] = array[field][:, i]
         else:
             # Copy non-mapped fields
             unmapped_array[field] = array[field]

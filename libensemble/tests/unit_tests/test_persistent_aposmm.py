@@ -225,7 +225,8 @@ def test_asktell_with_persistent_aposmm():
             point["energy"] = six_hump_camel_func(np.array([point["core"], point["edge"]]))
             total_evals += 1
         my_APOSMM.ingest(sample)
-    H, persis_info, exit_code = my_APOSMM.finalize()
+    my_APOSMM.finalize()
+    H, persis_info, exit_code = my_APOSMM.export()
 
     assert exit_code == FINISHED_PERSISTENT_GEN_TAG, "Standalone persistent_aposmm didn't exit correctly"
     assert persis_info.get("run_order"), "Standalone persistent_aposmm didn't do any localopt runs"
@@ -243,9 +244,63 @@ def test_asktell_with_persistent_aposmm():
     assert min_found >= 6, f"Found {min_found} minima"
 
 
+def test_aposmm_export():
+    """Test APOSMM export function with different options"""
+    from generator_standard.vocs import VOCS
+    from libensemble.gen_classes import APOSMM
+    
+    variables = {"core": [-3, 3], "edge": [-2, 2]}
+    objectives = {"energy": "MINIMIZE"}
+    vocs = VOCS(variables=variables, objectives=objectives)
+    
+    aposmm = APOSMM(
+        vocs,
+        initial_sample_size=10,
+        localopt_method="LN_BOBYQA",  # Add required parameter
+    )
+    
+    # Test basic export before finalize
+    H, _, _ = aposmm.export()
+    print(f"Export before finalize: {H}")  # Debug
+    assert H is None  # Should be None before finalize
+    
+    # Test export after suggest/ingest cycle
+    sample = aposmm.suggest(5)
+    for point in sample:
+        point["energy"] = 1.0  # Mock evaluation
+    aposmm.ingest(sample)
+    aposmm.finalize()
+
+    # Test export with unmapped fields
+    H, _, _ = aposmm.export()
+    if H is not None:
+        assert "x" in H.dtype.names and H["x"].ndim == 2
+        assert "f" in H.dtype.names and H["f"].ndim == 1
+
+    # Test export with user_fields
+    H_unmapped, _, _ = aposmm.export(user_fields=True)
+    print(f"H_unmapped: {H_unmapped}")  # Debug
+    if H_unmapped is not None:
+        assert "core" in H_unmapped.dtype.names
+        assert "edge" in H_unmapped.dtype.names
+    
+    # Test export with as_dicts
+    H_dicts, _, _ = aposmm.export(as_dicts=True)
+    assert isinstance(H_dicts, list)
+    assert isinstance(H_dicts[0], dict)
+    assert "x" in H_dicts[0]  # x remains as array
+    
+    # Test export with both options
+    H_both, _, _ = aposmm.export(user_fields=True, as_dicts=True)
+    assert isinstance(H_both, list)
+    assert "core" in H_both[0]
+    assert "edge" in H_both[0]
+        
+
 if __name__ == "__main__":
-    test_persis_aposmm_localopt_test()
-    test_update_history_optimal()
-    test_standalone_persistent_aposmm()
-    test_standalone_persistent_aposmm_combined_func()
-    test_asktell_with_persistent_aposmm()
+    # test_persis_aposmm_localopt_test()
+    # test_update_history_optimal()
+    # test_standalone_persistent_aposmm()
+    # test_standalone_persistent_aposmm_combined_func()
+    # test_asktell_with_persistent_aposmm()
+    test_aposmm_export()
