@@ -182,7 +182,9 @@ class PersistentGenInterfacer(LibensembleGenerator):
         self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
         self.gen_result = self.running_gen_f.result()
     
-    def export(self, user_fields: bool = False) -> tuple[npt.NDArray | None, dict | None, int | None]:
+    def export(
+        self, user_fields: bool = False, as_dicts: bool = False
+    ) -> tuple[npt.NDArray | list | None, dict | None, int | None]:
         """Return the generator's results
         
         Parameters
@@ -190,11 +192,14 @@ class PersistentGenInterfacer(LibensembleGenerator):
         user_fields : bool, optional
             If True, return local_H with variables unmapped from arrays back to individual fields.
             Default is False.
+        as_dicts : bool, optional
+            If True, return local_H as list of dictionaries instead of numpy array.
+            Default is False.
         
         Returns
         -------
-        local_H : npt.NDArray
-            Generator history array (unmapped if user_fields=True).
+        local_H : npt.NDArray | list
+            Generator history array (unmapped if user_fields=True, as dicts if as_dicts=True).
         persis_info : dict
             Persistent information.
         tag : int
@@ -206,7 +211,12 @@ class PersistentGenInterfacer(LibensembleGenerator):
         local_H, persis_info, tag = self.gen_result
         
         if user_fields and local_H is not None and self.variables_mapping:
-            unmapped_H = unmap_numpy_array(local_H, self.variables_mapping)
-            return (unmapped_H, persis_info, tag)
+            local_H = unmap_numpy_array(local_H, self.variables_mapping)
         
-        return self.gen_result
+        if as_dicts and local_H is not None:
+            if user_fields and self.variables_mapping:
+                local_H = np_to_list_dicts(local_H, self.variables_mapping, allow_arrays=True)
+            else:
+                local_H = np_to_list_dicts(local_H, allow_arrays=True)
+        
+        return (local_H, persis_info, tag)
