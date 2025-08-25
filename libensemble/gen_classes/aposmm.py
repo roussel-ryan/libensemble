@@ -16,9 +16,9 @@ class APOSMM(PersistentGenInterfacer):
     VOCS variables must include both regular and *_on_cube versions. E.g.,:
     
     vars_std = {
-        "var1": [0.0, 1.0],
-        "var2": [0.0, 1.0], 
-        "var3": [0.0, 1.0],
+        "var1": [-10.0, 10.0],
+        "var2": [0.0, 100.0], 
+        "var3": [1.0, 50.0],
         "var1_on_cube": [0, 1.0],
         "var2_on_cube": [0, 1.0],
         "var3_on_cube": [0, 1.0]
