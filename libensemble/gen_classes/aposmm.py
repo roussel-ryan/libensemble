@@ -12,6 +12,24 @@ from libensemble.message_numbers import EVAL_GEN_TAG, PERSIS_STOP
 class APOSMM(PersistentGenInterfacer):
     """
     Standalone object-oriented APOSMM generator
+
+    VOCS variables must include both regular and *_on_cube versions. E.g.,:
+    
+    vars_std = {
+        "var1": [0.0, 1.0],
+        "var2": [0.0, 1.0], 
+        "var3": [0.0, 1.0],
+        "var1_on_cube": [0, 1.0],
+        "var2_on_cube": [0, 1.0],
+        "var3_on_cube": [0, 1.0]
+    }
+    
+    variables_mapping = {
+        "x": ["var1", "var2", "var3"],
+        "x_on_cube": ["var1_on_cube", "var2_on_cube", "var3_on_cube"],
+    }
+    
+    gen = APOSMM(vocs, variables_mapping=variables_mapping, ...)
     """
 
     def __init__(
