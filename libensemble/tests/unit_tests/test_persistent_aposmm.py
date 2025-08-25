@@ -185,13 +185,24 @@ def test_asktell_with_persistent_aposmm():
     n = 2
     eval_max = 2000
 
-    variables = {"core": [-3, 3], "edge": [-2, 2]}
+    variables = {
+        "core": [-3, 3],
+        "edge": [-2, 2],
+        "core_on_cube": [0, 1],
+        "edge_on_cube": [0, 1]
+    }
     objectives = {"energy": "MINIMIZE"}
+
+    variables_mapping = {
+        "x": ["core", "edge"],
+        "x_on_cube": ["core_on_cube", "edge_on_cube"]
+    }
 
     vocs = VOCS(variables=variables, objectives=objectives)
 
     my_APOSMM = APOSMM(
         vocs,
+        variables_mapping=variables_mapping, 
         initial_sample_size=100,
         sample_points=np.round(minima, 1),
         localopt_method="LN_BOBYQA",
@@ -244,19 +255,37 @@ def test_asktell_with_persistent_aposmm():
     assert min_found >= 6, f"Found {min_found} minima"
 
 
+@pytest.mark.extra
 def test_aposmm_export():
     """Test APOSMM export function with different options"""
     from generator_standard.vocs import VOCS
     from libensemble.gen_classes import APOSMM
     
-    variables = {"core": [-3, 3], "edge": [-2, 2]}
+    variables = {
+        "core": [-3, 3],
+        "edge": [-2, 2],
+        "core_on_cube": [0, 1],
+        "edge_on_cube": [0, 1],
+    }
     objectives = {"energy": "MINIMIZE"}
+
+    variables_mapping = {
+        "x": ["core", "edge"],
+        "x_on_cube": ["core_on_cube", "edge_on_cube"]
+    }
     vocs = VOCS(variables=variables, objectives=objectives)
     
     aposmm = APOSMM(
         vocs,
+        variables_mapping=variables_mapping, 
         initial_sample_size=10,
-        localopt_method="LN_BOBYQA",  # Add required parameter
+        sample_points=np.round(minima, 1),
+        localopt_method="LN_BOBYQA",
+        rk_const=0.5 * ((gamma(1 + (n / 2)) * 5) ** (1 / n)) / sqrt(pi),
+        xtol_abs=1e-6,
+        ftol_abs=1e-6,
+        dist_to_bound_multiple=0.5,
+        max_active_runs=6,
     )
     
     # Test basic export before finalize
