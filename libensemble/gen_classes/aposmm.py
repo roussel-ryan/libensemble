@@ -97,15 +97,23 @@ class APOSMM(PersistentGenInterfacer):
         gen_specs["user"]["lb"] = np.array([vocs.variables[i].domain[0] for i in vocs.variables])
         gen_specs["user"]["ub"] = np.array([vocs.variables[i].domain[1] for i in vocs.variables])
 
-        gen_specs["user"]["initial_sample_size"] = initial_sample_size
         if sample_points is not None:
             gen_specs["user"]["sample_points"] = sample_points
-        gen_specs["user"]["localopt_method"] = localopt_method
-        gen_specs["user"]["rk_const"] = rk_const
-        gen_specs["user"]["xtol_abs"] = xtol_abs
-        gen_specs["user"]["ftol_abs"] = ftol_abs
-        gen_specs["user"]["dist_to_bound_multiple"] = dist_to_bound_multiple
-        gen_specs["user"]["max_active_runs"] = max_active_runs
+
+        FIELDS = [
+            "initial_sample_size",
+            "localopt_method",
+            "rk_const",
+            "xtol_abs",
+            "ftol_abs",
+            "dist_to_bound_multiple",
+            "max_active_runs",
+        ]
+
+        for k in FIELDS:
+            val = locals().get(k)
+            if val is not None:
+                gen_specs["user"][k] = val
 
         if not gen_specs.get("out"):  # gen_specs never especially changes for aposmm even as the problem varies
             gen_specs["out"] = [
