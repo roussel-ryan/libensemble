@@ -44,12 +44,10 @@ class APOSMM(PersistentGenInterfacer):
         from libensemble.gen_funcs.persistent_aposmm import aposmm
 
         self.VOCS = vocs
-
         gen_specs["gen_f"] = aposmm
-        self.n = len(list(self.VOCS.variables.keys()))
-
         gen_specs["user"] = {}
 
+        self.n = len(list(self.VOCS.variables.keys()))
         super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
 
         # Set bounds using the correct x mapping
@@ -57,7 +55,7 @@ class APOSMM(PersistentGenInterfacer):
         self.gen_specs["user"]["lb"] = np.array([vocs.variables[var].domain[0] for var in x_mapping])
         self.gen_specs["user"]["ub"] = np.array([vocs.variables[var].domain[1] for var in x_mapping])
 
-        if not gen_specs.get("out"):  # gen_specs never especially changes for aposmm even as the problem varies
+        if not gen_specs.get("out"):
             x_size = len(self.variables_mapping.get("x", []))
             x_on_cube_size = len(self.variables_mapping.get("x_on_cube", []))
             assert x_size > 0 and x_on_cube_size > 0, "Both x and x_on_cube must be specified in variables_mapping"
@@ -67,10 +65,12 @@ class APOSMM(PersistentGenInterfacer):
                 ("x_on_cube", float, x_on_cube_size),
                 ("sim_id", int),
                 ("local_min", bool),
-                ("local_pt", bool),
+                ("local_pt", bool),              
             ]
-            gen_specs["persis_in"] = ["x", "f", "local_pt", "sim_id", "sim_ended", "x_on_cube", "local_min"]
 
+            gen_specs["persis_in"] = ["sim_id", "x", "x_on_cube", "f", "sim_ended"]
+
+        # SH - Need to know if this is gen_on_manager or not.
         if not self.persis_info.get("nworkers"):
             self.persis_info["nworkers"] = kwargs.get("nworkers", gen_specs["user"].get("max_active_runs", 4))
         self.all_local_minima = []

@@ -140,16 +140,24 @@ class PersistentGenInterfacer(LibensembleGenerator):
             user_function=True,
         )
 
-        # this is okay since the object isnt started until the first suggest
+        # This can be set here since the object isnt started until the first suggest
         self.libE_info["comm"] = self.running_gen_f.comm
 
-    def _set_sim_ended(self, results: npt.NDArray) -> npt.NDArray:
-        new_results = np.zeros(len(results), dtype=self.gen_specs["out"] + [("sim_ended", bool), ("f", float)])
-        for field in results.dtype.names:
+    def _prep_fields(self, results: npt.NDArray) -> npt.NDArray:
+        """Filter out fields that are not in persis_in and add sim_ended to the dtype"""
+        filtered_dtype = [
+            (name, results.dtype[name]) for name in results.dtype.names if name in self.gen_specs["persis_in"]
+        ]
+
+        new_dtype = filtered_dtype + [("sim_ended", bool)]
+        new_results = np.zeros(len(results), dtype=new_dtype)
+
+        for field in new_results.dtype.names:
             try:
                 new_results[field] = results[field]
-            except ValueError:  # lets not slot in data that the gen doesnt need?
+            except ValueError:
                 continue
+
         new_results["sim_ended"] = True
         return new_results
 
@@ -168,7 +176,7 @@ class PersistentGenInterfacer(LibensembleGenerator):
     def ingest_numpy(self, results: npt.NDArray, tag: int = EVAL_GEN_TAG) -> None:
         """Send the results of evaluations to the generator, as a NumPy array."""
         if results is not None:
-            results = self._set_sim_ended(results)
+            results = self._prep_fields(results)
             Work = {"libE_info": {"H_rows": np.copy(results["sim_id"]), "persistent": True, "executor": None}}
             self.running_gen_f.send(tag, Work)
             self.running_gen_f.send(
