@@ -97,11 +97,9 @@ class APOSMM(PersistentGenInterfacer):
         gen_specs["user"]["lb"] = np.array([vocs.variables[i].domain[0] for i in vocs.variables])
         gen_specs["user"]["ub"] = np.array([vocs.variables[i].domain[1] for i in vocs.variables])
 
-        if sample_points is not None:
-            gen_specs["user"]["sample_points"] = sample_points
-
         FIELDS = [
             "initial_sample_size",
+            "sample_points",
             "localopt_method",
             "rk_const",
             "xtol_abs",
@@ -115,15 +113,14 @@ class APOSMM(PersistentGenInterfacer):
             if val is not None:
                 gen_specs["user"][k] = val
 
-        if not gen_specs.get("out"):  # gen_specs never especially changes for aposmm even as the problem varies
-            gen_specs["out"] = [
-                ("x", float, self.n),
-                ("x_on_cube", float, self.n),
-                ("sim_id", int),
-                ("local_min", bool),
-                ("local_pt", bool),
-            ]
-            gen_specs["persis_in"] = ["x", "f", "local_pt", "sim_id", "sim_ended", "x_on_cube", "local_min"]
+        gen_specs["out"] = [
+            ("x", float, self.n),
+            ("x_on_cube", float, self.n),
+            ("sim_id", int),
+            ("local_min", bool),
+            ("local_pt", bool),
+        ]
+        gen_specs["persis_in"] = ["x", "f", "local_pt", "sim_id", "sim_ended", "x_on_cube", "local_min"]
         super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
 
         if not self.persis_info.get("nworkers"):
