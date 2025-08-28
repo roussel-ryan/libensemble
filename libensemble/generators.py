@@ -55,12 +55,20 @@ class LibensembleGenerator(Generator):
 
         self.variables_mapping = variables_mapping
         if not self.variables_mapping:
+            self.variables_mapping = {}
+            
+        # Map variables to x if not already mapped
+        if "x" not in self.variables_mapping:
+            #SH TODO - is this check needed?
             if len(list(self.VOCS.variables.keys())) > 1 or list(self.VOCS.variables.keys())[0] != "x":
-                self.variables_mapping["x"] = list(self.VOCS.variables.keys())
+                self.variables_mapping["x"] = self._get_unmapped_keys(self.VOCS.variables, "x")
+                
+        # Map objectives to f if not already mapped
+        if "f" not in self.variables_mapping:
             if (
                 len(list(self.VOCS.objectives.keys())) > 1 or list(self.VOCS.objectives.keys())[0] != "f"
             ):  # e.g. {"f": ["f"]} doesn't need mapping
-                self.variables_mapping["f"] = list(self.VOCS.objectives.keys())
+                self.variables_mapping["f"] = self._get_unmapped_keys(self.VOCS.objectives, "f")
 
         if len(kwargs) > 0:  # so user can specify gen-specific parameters as kwargs to constructor
             if not self.gen_specs.get("user"):
@@ -73,6 +81,16 @@ class LibensembleGenerator(Generator):
 
     def _validate_vocs(self, vocs) -> None:
         pass
+        
+    def _get_unmapped_keys(self, vocs_dict, default_key):
+        """Get keys from vocs_dict that aren't already mapped to other keys in variables_mapping."""
+        # Get all variables that aren't already mapped to other keys
+        mapped_vars = []
+        for mapped_list in self.variables_mapping.values():
+            mapped_vars.extend(mapped_list)
+        
+        unmapped_vars = [v for v in list(vocs_dict.keys()) if v not in mapped_vars]
+        return unmapped_vars
 
     @abstractmethod
     def suggest_numpy(self, num_points: Optional[int] = 0) -> npt.NDArray:

@@ -195,7 +195,8 @@ def test_asktell_with_persistent_aposmm():
 
     variables_mapping = {
         "x": ["core", "edge"],
-        "x_on_cube": ["core_on_cube", "edge_on_cube"]
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+        "f": ["energy"],
     }
 
     vocs = VOCS(variables=variables, objectives=objectives)
@@ -229,6 +230,8 @@ def test_asktell_with_persistent_aposmm():
     while total_evals < eval_max:
 
         sample, detected_minima = my_APOSMM.suggest(6), my_APOSMM.suggest_updates()
+        if detected_minima:
+            print(f'sample {sample} detected_minima: {detected_minima}')
         if len(detected_minima):
             for m in detected_minima:
                 potential_minima.append(m)
@@ -239,8 +242,11 @@ def test_asktell_with_persistent_aposmm():
     my_APOSMM.finalize()
     H, persis_info, exit_code = my_APOSMM.export()
 
+    print(f"Number of local_min points in H: {np.sum(H['local_min'])}", flush=True)
+
     assert exit_code == FINISHED_PERSISTENT_GEN_TAG, "Standalone persistent_aposmm didn't exit correctly"
     assert persis_info.get("run_order"), "Standalone persistent_aposmm didn't do any localopt runs"
+    
 
     assert len(potential_minima) >= 6, f"Found {len(potential_minima)} minima"
 
@@ -255,9 +261,8 @@ def test_asktell_with_persistent_aposmm():
     assert min_found >= 6, f"Found {min_found} minima"
 
 
-@pytest.mark.extra
-def test_aposmm_export():
-    """Test APOSMM export function with different options"""
+def _run_aposmm_export_test(variables_mapping):
+    """Helper function to run APOSMM export tests with given variables_mapping"""
     from generator_standard.vocs import VOCS
     from libensemble.gen_classes import APOSMM
     
@@ -269,19 +274,13 @@ def test_aposmm_export():
     }
     objectives = {"energy": "MINIMIZE"}
 
-    variables_mapping = {
-        "x": ["core", "edge"],
-        "x_on_cube": ["core_on_cube", "edge_on_cube"]
-    }
     vocs = VOCS(variables=variables, objectives=objectives)
     
     aposmm = APOSMM(
         vocs,
         variables_mapping=variables_mapping, 
         initial_sample_size=10,
-        sample_points=np.round(minima, 1),
         localopt_method="LN_BOBYQA",
-        rk_const=0.5 * ((gamma(1 + (n / 2)) * 5) ** (1 / n)) / sqrt(pi),
         xtol_abs=1e-6,
         ftol_abs=1e-6,
         dist_to_bound_multiple=0.5,
@@ -312,18 +311,40 @@ def test_aposmm_export():
     if H_unmapped is not None:
         assert "core" in H_unmapped.dtype.names
         assert "edge" in H_unmapped.dtype.names
+        assert "energy" in H_unmapped.dtype.names
     
     # Test export with as_dicts
     H_dicts, _, _ = aposmm.export(as_dicts=True)
     assert isinstance(H_dicts, list)
     assert isinstance(H_dicts[0], dict)
     assert "x" in H_dicts[0]  # x remains as array
+    assert "f" in H_dicts[0]
     
     # Test export with both options
     H_both, _, _ = aposmm.export(user_fields=True, as_dicts=True)
     assert isinstance(H_both, list)
     assert "core" in H_both[0]
     assert "edge" in H_both[0]
+    assert "energy" in H_both[0]
+
+
+@pytest.mark.extra
+def test_aposmm_export():
+    """Test APOSMM export function with different options"""
+
+    # Test with full variables_mapping
+    full_mapping = {
+        "x": ["core", "edge"],
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+        "f": ["energy"],
+    }
+    _run_aposmm_export_test(full_mapping)
+    
+    # Test with just x_on_cube mapping (should auto-map x and f)
+    minimal_mapping = {
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+    }
+    _run_aposmm_export_test(minimal_mapping)
         
 
 if __name__ == "__main__":

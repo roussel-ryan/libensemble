@@ -65,7 +65,7 @@ class APOSMM(PersistentGenInterfacer):
                 ("x_on_cube", float, x_on_cube_size),
                 ("sim_id", int),
                 ("local_min", bool),
-                ("local_pt", bool),              
+                ("local_pt", bool), 
             ]
 
             gen_specs["persis_in"] = ["sim_id", "x", "x_on_cube", "f", "sim_ended"]
