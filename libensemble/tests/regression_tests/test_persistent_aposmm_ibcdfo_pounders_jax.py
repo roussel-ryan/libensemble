@@ -31,7 +31,6 @@ import numpy as np
 
 import libensemble.gen_funcs
 from libensemble.libE import libE
-from libensemble.sim_funcs.chwirut1 import chwirut_eval
 
 libensemble.gen_funcs.rc.aposmm_optimizers = "ibcdfo"
 
