@@ -449,12 +449,12 @@ def run_local_ibcdfo_manifold_sampling(user_specs, comm_queue, x0, f0, child_can
     subprob_switch = "linprog"
 
 
-    [X, F, hF, flag, xkin] = manifold_sampling_primal(
+    [X, F, hF, xkin, flag] = manifold_sampling_primal(
             user_specs["hfun"], 
             lambda x: scipy_dfols_callback_fun(x, comm_queue, child_can_read, parent_can_read, user_specs),
             x0,
-            lb
-            ub
+            lb,
+            ub,
             run_max_eval,
             subprob_switch
     )
@@ -463,7 +463,7 @@ def run_local_ibcdfo_manifold_sampling(user_specs, comm_queue, x0, f0, child_can
 
     x_opt = X[xkin]
 
-    if flag == 0 or flag == -6:
+    if flag > 0:
         opt_flag = 1
     else:
         print(

@@ -32,7 +32,7 @@ import numpy as np
 import libensemble.gen_funcs
 from libensemble.libE import libE
 
-libensemble.gen_funcs.rc.aposmm_optimizers = "ibcdfo"
+libensemble.gen_funcs.rc.aposmm_optimizers = "ibcdfo_pounders"
 
 from libensemble.alloc_funcs.persistent_aposmm_alloc import persistent_aposmm_alloc as alloc_f
 from libensemble.gen_funcs.persistent_aposmm import aposmm as gen_f

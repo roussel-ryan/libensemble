@@ -32,15 +32,15 @@ import numpy as np
 import libensemble.gen_funcs
 from libensemble.libE import libE
 
-libensemble.gen_funcs.rc.aposmm_optimizers = "ibcdfo"
+libensemble.gen_funcs.rc.aposmm_optimizers = "ibcdfo_manifold_sampling"
 
 from libensemble.alloc_funcs.persistent_aposmm_alloc import persistent_aposmm_alloc as alloc_f
 from libensemble.gen_funcs.persistent_aposmm import aposmm as gen_f
 from libensemble.tools import add_unique_random_streams, parse_args, save_libE_output
 
 try:
-    from ibcdfo.pounders import pounders  # noqa: F401
-    from declare_hfun_and_combine_model_with_jax import hfun, combinemodels_jax
+    from ibcdfo.manifold_sampling import manifold_sampling_primal  # noqa: F401
+    from ibcdfo.manifold_sampling.h_examples import pw_maximum as hfun
 
 except ModuleNotFoundError:
     sys.exit("Please 'pip install ibcdfo'")
@@ -66,7 +66,7 @@ def synthetic_beamline_mapping(H, _, sim_specs):
 
     Out = np.zeros(1, dtype=sim_specs["out"])
     Out["fvec"] = y
-    Out["f"] = y[0] * y[1] - y[2] ** 2
+    Out["f"] = np.max(y) 
     return Out
 
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
             "stop_after_k_runs": 1,
             "max_active_runs": 1,
             "sample_points": np.atleast_2d(0.1 * (np.arange(n) + 1)),
-            "localopt_method": "ibcdfo_MSP",
+            "localopt_method": "ibcdfo_manifold_sampling",
             "run_max_eval": 100 * (n + 1),
             "components": m,
             "lb": -1 * np.ones(n),
@@ -115,7 +115,6 @@ if __name__ == "__main__":
     }
 
     gen_specs["user"]["hfun"] = hfun
-    gen_specs["user"]["combinemodels"] = combinemodels_jax
 
     alloc_specs = {"alloc_f": alloc_f}
 
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     H, persis_info, flag = libE(sim_specs, gen_specs, exit_criteria, persis_info, alloc_specs, libE_specs)
 
     if is_manager:
-        print(H[["x", "f", "local_min"]])
+        assert np.min(H["f"]) == 2.0, "The best is 2"
         assert persis_info[1].get("run_order"), "Run_order should have been given back"
         assert flag == 0
 
