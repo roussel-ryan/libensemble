@@ -422,6 +422,7 @@ def run_local_dfols(user_specs, comm_queue, x0, f0, child_can_read, parent_can_r
 
     finish_queue(x_opt, opt_flag, comm_queue, parent_can_read, user_specs)
 
+
 def run_local_ibcdfo_manifold_sampling(user_specs, comm_queue, x0, f0, child_can_read, parent_can_read):
     """
     Runs a IBCDFO local optimization run starting at ``x0``, governed by the
@@ -448,15 +449,14 @@ def run_local_ibcdfo_manifold_sampling(user_specs, comm_queue, x0, f0, child_can
     # m = len(f0)
     subprob_switch = "linprog"
 
-
     [X, F, hF, xkin, flag] = manifold_sampling_primal(
-            user_specs["hfun"], 
-            lambda x: scipy_dfols_callback_fun(x, comm_queue, child_can_read, parent_can_read, user_specs),
-            x0,
-            lb,
-            ub,
-            run_max_eval,
-            subprob_switch
+        user_specs["hfun"],
+        lambda x: scipy_dfols_callback_fun(x, comm_queue, child_can_read, parent_can_read, user_specs),
+        x0,
+        lb,
+        ub,
+        run_max_eval,
+        subprob_switch,
     )
 
     assert flag >= 0 or flag == -6, "IBCDFO errored"

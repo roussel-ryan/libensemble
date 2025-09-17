@@ -66,7 +66,7 @@ def synthetic_beamline_mapping(H, _, sim_specs):
 
     Out = np.zeros(1, dtype=sim_specs["out"])
     Out["fvec"] = y
-    Out["f"] = np.max(y) 
+    Out["f"] = np.max(y)
     return Out
 
 
