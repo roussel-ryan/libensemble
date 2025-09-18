@@ -52,10 +52,6 @@ except ModuleNotFoundError:
     sys.exit("Ensure https://github.com/POptUS/minq has been cloned and that minq/py/minq5/ is on the PYTHONPATH")
 
 
-def sum_squared(x):
-    return np.sum(np.power(x, 2))
-
-
 def synthetic_beamline_mapping(H, _, sim_specs):
     x = H["x"][0]
     assert len(x) == 4, "Assuming 4 inputs to this function"
