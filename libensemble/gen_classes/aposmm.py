@@ -69,6 +69,8 @@ class APOSMM(PersistentGenInterfacer):
             ]
 
             gen_specs["persis_in"] = ["sim_id", "x", "x_on_cube", "f", "sim_ended"]
+            if "components" in kwargs or "components" in gen_specs.get("user", {}):
+                gen_specs["persis_in"].append("fvec")
 
         # SH - Need to know if this is gen_on_manager or not.
         if not self.persis_info.get("nworkers"):
