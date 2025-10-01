@@ -188,14 +188,12 @@ def _is_singledim(selection: npt.NDArray) -> bool:
 
 def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
     """Convert numpy array with mapped fields back to individual scalar fields.
-    
     Parameters
     ----------
     array : npt.NDArray
         Input array with mapped fields like x = [x0, x1, x2]
     mapping : dict
         Mapping from field names to variable names
-        
     Returns
     -------
     npt.NDArray
@@ -203,7 +201,6 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
     """
     if not mapping or array is None:
         return array
-        
     # Create new dtype with unmapped fields
     new_fields = []
     for field in array.dtype.names:
@@ -214,9 +211,7 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
             # Preserve the original field structure including per-row shape
             field_dtype = array.dtype[field]
             new_fields.append((field, field_dtype))
-    
     unmapped_array = np.zeros(len(array), dtype=new_fields)
-    
     for field in array.dtype.names:
         if field in mapping:
             # Unmap array fields
@@ -230,7 +225,6 @@ def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
         else:
             # Copy non-mapped fields
             unmapped_array[field] = array[field]
-    
     return unmapped_array
 
 

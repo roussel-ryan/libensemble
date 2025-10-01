@@ -586,7 +586,7 @@ def run_local_tao(user_specs, comm_queue, x0, f0, child_can_read, parent_can_rea
 def opt_runner(run_local_opt, user_specs, comm_queue, x0, f0, child_can_read, parent_can_read):
     try:
         run_local_opt(user_specs, comm_queue, x0, f0, child_can_read, parent_can_read)
-    except Exception as e:
+    except Exception:
         comm_queue.put(ErrorMsg(traceback.format_exc()))
         parent_can_read.set()
 

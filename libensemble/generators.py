@@ -56,13 +56,11 @@ class LibensembleGenerator(Generator):
         self.variables_mapping = variables_mapping
         if not self.variables_mapping:
             self.variables_mapping = {}
-            
         # Map variables to x if not already mapped
         if "x" not in self.variables_mapping:
-            #SH TODO - is this check needed?
+            # SH TODO - is this check needed?
             if len(list(self.VOCS.variables.keys())) > 1 or list(self.VOCS.variables.keys())[0] != "x":
                 self.variables_mapping["x"] = self._get_unmapped_keys(self.VOCS.variables, "x")
-                
         # Map objectives to f if not already mapped
         if "f" not in self.variables_mapping:
             if (
@@ -81,14 +79,13 @@ class LibensembleGenerator(Generator):
 
     def _validate_vocs(self, vocs) -> None:
         pass
-        
+
     def _get_unmapped_keys(self, vocs_dict, default_key):
         """Get keys from vocs_dict that aren't already mapped to other keys in variables_mapping."""
         # Get all variables that aren't already mapped to other keys
         mapped_vars = []
         for mapped_list in self.variables_mapping.values():
             mapped_vars.extend(mapped_list)
-        
         unmapped_vars = [v for v in list(vocs_dict.keys()) if v not in mapped_vars]
         return unmapped_vars
 
@@ -207,12 +204,11 @@ class PersistentGenInterfacer(LibensembleGenerator):
         """Stop the generator process and store the returned data."""
         self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
         self.gen_result = self.running_gen_f.result()
-    
+
     def export(
         self, user_fields: bool = False, as_dicts: bool = False
     ) -> tuple[npt.NDArray | list | None, dict | None, int | None]:
         """Return the generator's results
-        
         Parameters
         ----------
         user_fields : bool, optional
@@ -221,7 +217,6 @@ class PersistentGenInterfacer(LibensembleGenerator):
         as_dicts : bool, optional
             If True, return local_H as list of dictionaries instead of numpy array.
             Default is False.
-        
         Returns
         -------
         local_H : npt.NDArray | list
@@ -233,16 +228,12 @@ class PersistentGenInterfacer(LibensembleGenerator):
         """
         if not self.gen_result:
             return (None, None, None)
-            
         local_H, persis_info, tag = self.gen_result
-        
         if user_fields and local_H is not None and self.variables_mapping:
             local_H = unmap_numpy_array(local_H, self.variables_mapping)
-        
         if as_dicts and local_H is not None:
             if user_fields and self.variables_mapping:
                 local_H = np_to_list_dicts(local_H, self.variables_mapping, allow_arrays=True)
             else:
                 local_H = np_to_list_dicts(local_H, allow_arrays=True)
-        
         return (local_H, persis_info, tag)

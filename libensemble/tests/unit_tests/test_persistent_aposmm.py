@@ -203,7 +203,7 @@ def test_asktell_with_persistent_aposmm():
 
     my_APOSMM = APOSMM(
         vocs,
-        variables_mapping=variables_mapping, 
+        variables_mapping=variables_mapping,
         initial_sample_size=100,
         sample_points=np.round(minima, 1),
         localopt_method="LN_BOBYQA",
@@ -246,7 +246,6 @@ def test_asktell_with_persistent_aposmm():
 
     assert exit_code == FINISHED_PERSISTENT_GEN_TAG, "Standalone persistent_aposmm didn't exit correctly"
     assert persis_info.get("run_order"), "Standalone persistent_aposmm didn't do any localopt runs"
-    
 
     assert len(potential_minima) >= 6, f"Found {len(potential_minima)} minima"
 
@@ -265,7 +264,6 @@ def _run_aposmm_export_test(variables_mapping):
     """Helper function to run APOSMM export tests with given variables_mapping"""
     from generator_standard.vocs import VOCS
     from libensemble.gen_classes import APOSMM
-    
     variables = {
         "core": [-3, 3],
         "edge": [-2, 2],
@@ -275,10 +273,9 @@ def _run_aposmm_export_test(variables_mapping):
     objectives = {"energy": "MINIMIZE"}
 
     vocs = VOCS(variables=variables, objectives=objectives)
-    
     aposmm = APOSMM(
         vocs,
-        variables_mapping=variables_mapping, 
+        variables_mapping=variables_mapping,
         initial_sample_size=10,
         localopt_method="LN_BOBYQA",
         xtol_abs=1e-6,
@@ -286,12 +283,10 @@ def _run_aposmm_export_test(variables_mapping):
         dist_to_bound_multiple=0.5,
         max_active_runs=6,
     )
-    
     # Test basic export before finalize
     H, _, _ = aposmm.export()
     print(f"Export before finalize: {H}")  # Debug
     assert H is None  # Should be None before finalize
-    
     # Test export after suggest/ingest cycle
     sample = aposmm.suggest(5)
     for point in sample:
@@ -312,14 +307,12 @@ def _run_aposmm_export_test(variables_mapping):
         assert "core" in H_unmapped.dtype.names
         assert "edge" in H_unmapped.dtype.names
         assert "energy" in H_unmapped.dtype.names
-    
     # Test export with as_dicts
     H_dicts, _, _ = aposmm.export(as_dicts=True)
     assert isinstance(H_dicts, list)
     assert isinstance(H_dicts[0], dict)
     assert "x" in H_dicts[0]  # x remains as array
     assert "f" in H_dicts[0]
-    
     # Test export with both options
     H_both, _, _ = aposmm.export(user_fields=True, as_dicts=True)
     assert isinstance(H_both, list)
@@ -339,13 +332,12 @@ def test_aposmm_export():
         "f": ["energy"],
     }
     _run_aposmm_export_test(full_mapping)
-    
     # Test with just x_on_cube mapping (should auto-map x and f)
     minimal_mapping = {
         "x_on_cube": ["core_on_cube", "edge_on_cube"],
     }
     _run_aposmm_export_test(minimal_mapping)
-        
+
 
 if __name__ == "__main__":
     test_persis_aposmm_localopt_test()

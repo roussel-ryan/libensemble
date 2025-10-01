@@ -113,7 +113,6 @@ def test_unmap_numpy_array_basic():
     assert H_unmapped["x0_cube"][0] == 0.1
     assert H_unmapped["x1_cube"][0] == 0.2
     assert H_unmapped["x2_cube"][0] == 0.3
-    
     # Test that non-mapped array fields are passed through unchanged
     assert "grad" in H_unmapped.dtype.names
     assert np.array_equal(H_unmapped["grad"], H["grad"])
