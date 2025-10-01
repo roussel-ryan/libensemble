@@ -185,12 +185,7 @@ def test_asktell_with_persistent_aposmm():
     n = 2
     eval_max = 2000
 
-    variables = {
-        "core": [-3, 3],
-        "edge": [-2, 2],
-        "core_on_cube": [0, 1],
-        "edge_on_cube": [0, 1]
-    }
+    variables = {"core": [-3, 3], "edge": [-2, 2], "core_on_cube": [0, 1], "edge_on_cube": [0, 1]}
     objectives = {"energy": "MINIMIZE"}
 
     variables_mapping = {
@@ -231,7 +226,7 @@ def test_asktell_with_persistent_aposmm():
 
         sample, detected_minima = my_APOSMM.suggest(6), my_APOSMM.suggest_updates()
         if detected_minima:
-            print(f'sample {sample} detected_minima: {detected_minima}')
+            print(f"sample {sample} detected_minima: {detected_minima}")
         if len(detected_minima):
             for m in detected_minima:
                 potential_minima.append(m)
@@ -264,6 +259,7 @@ def _run_aposmm_export_test(variables_mapping):
     """Helper function to run APOSMM export tests with given variables_mapping"""
     from generator_standard.vocs import VOCS
     from libensemble.gen_classes import APOSMM
+
     variables = {
         "core": [-3, 3],
         "edge": [-2, 2],

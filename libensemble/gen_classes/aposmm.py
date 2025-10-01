@@ -56,9 +56,9 @@ class APOSMM(PersistentGenInterfacer):
             x_size = len(self.variables_mapping.get("x", []))
             x_on_cube_size = len(self.variables_mapping.get("x_on_cube", []))
             assert x_size > 0 and x_on_cube_size > 0, "Both x and x_on_cube must be specified in variables_mapping"
-            assert x_size == x_on_cube_size, (
-                f"x and x_on_cube must have same length but got {x_size} and {x_on_cube_size}"
-            )
+            assert (
+                x_size == x_on_cube_size
+            ), f"x and x_on_cube must have same length but got {x_size} and {x_on_cube_size}"
             gen_specs["out"] = [
                 ("x", float, x_size),
                 ("x_on_cube", float, x_on_cube_size),
