@@ -2,8 +2,8 @@ from abc import abstractmethod
 from typing import List, Optional
 
 import numpy as np
-from generator_standard import Generator
-from generator_standard.vocs import VOCS
+from gest_api import Generator
+from gest_api.vocs import VOCS
 from numpy import typing as npt
 
 from libensemble.comms.comms import QCommProcess  # , QCommThread

@@ -4,7 +4,7 @@ import time
 from typing import List
 
 import numpy as np
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 from gpcam import GPOptimizer as GP
 from numpy import typing as npt
 

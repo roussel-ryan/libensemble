@@ -2,7 +2,7 @@ import copy
 from typing import List
 
 import numpy as np
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 from numpy import typing as npt
 
 from libensemble.generators import PersistentGenInterfacer

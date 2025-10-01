@@ -28,7 +28,7 @@ from libensemble.sim_funcs.six_hump_camel import six_hump_camel as sim_f
 libensemble.gen_funcs.rc.aposmm_optimizers = "nlopt"
 from time import time
 
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 
 from libensemble import Ensemble
 from libensemble.alloc_funcs.persistent_aposmm_alloc import persistent_aposmm_alloc as alloc_f

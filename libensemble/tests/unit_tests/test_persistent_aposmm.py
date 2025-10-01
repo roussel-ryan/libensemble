@@ -172,7 +172,7 @@ def test_standalone_persistent_aposmm_combined_func():
 def test_asktell_with_persistent_aposmm():
     from math import gamma, pi, sqrt
 
-    from generator_standard.vocs import VOCS
+    from gest_api.vocs import VOCS
 
     import libensemble.gen_funcs
     from libensemble.gen_classes import APOSMM
@@ -257,7 +257,7 @@ def test_asktell_with_persistent_aposmm():
 
 def _run_aposmm_export_test(variables_mapping):
     """Helper function to run APOSMM export tests with given variables_mapping"""
-    from generator_standard.vocs import VOCS
+    from gest_api.vocs import VOCS
     from libensemble.gen_classes import APOSMM
 
     variables = {
