@@ -69,7 +69,7 @@ if __name__ == "__main__":
         max_active_runs=workflow.nworkers,  # should this match nworkers always? practically?
     )
 
-    # SH TODO - dont want this stuff duplicated
+    # SH TODO - dont want this stuff duplicated - pass with vocs instead
     workflow.gen_specs = GenSpecs(
         persis_in=["x", "x_on_cube", "sim_id", "local_min", "local_pt", "f"],
         generator=aposmm,
