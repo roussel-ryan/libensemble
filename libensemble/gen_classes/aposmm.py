@@ -43,8 +43,6 @@ class APOSMM(PersistentGenInterfacer):
         self.VOCS = vocs
         gen_specs["gen_f"] = aposmm
         gen_specs["user"] = {}
-
-        self.n = len(list(self.VOCS.variables.keys()))
         super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
 
         # Set bounds using the correct x mapping
@@ -59,6 +57,7 @@ class APOSMM(PersistentGenInterfacer):
             assert (
                 x_size == x_on_cube_size
             ), f"x and x_on_cube must have same length but got {x_size} and {x_on_cube_size}"
+
             gen_specs["out"] = [
                 ("x", float, x_size),
                 ("x_on_cube", float, x_on_cube_size),
