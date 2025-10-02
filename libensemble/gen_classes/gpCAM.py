@@ -4,7 +4,7 @@ import time
 from typing import List
 
 import numpy as np
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 from gpcam import GPOptimizer as GP
 from numpy import typing as npt
 
@@ -55,9 +55,9 @@ class GP_CAM(LibensembleGenerator):
         self.noise = 1e-8  # 1e-12
         self.ask_max_iter = ask_max_iter
 
-    def _validate_vocs(self, VOCS):
-        assert len(self.VOCS.variables), "VOCS must contain variables."
-        assert len(self.VOCS.objectives), "VOCS must contain at least one objective."
+    def _validate_vocs(self, vocs):
+        assert len(vocs.variables), "VOCS must contain variables."
+        assert len(vocs.objectives), "VOCS must contain at least one objective."
 
     def suggest_numpy(self, n_trials: int) -> npt.NDArray:
         if self.all_x.shape[0] == 0:

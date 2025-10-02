@@ -28,7 +28,7 @@ from libensemble.sim_funcs.six_hump_camel import six_hump_camel as sim_f
 libensemble.gen_funcs.rc.aposmm_optimizers = "nlopt"
 from time import time
 
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 
 from libensemble import Ensemble
 from libensemble.alloc_funcs.persistent_aposmm_alloc import persistent_aposmm_alloc as alloc_f
@@ -53,12 +53,13 @@ if __name__ == "__main__":
     workflow.exit_criteria = ExitCriteria(sim_max=2000)
 
     vocs = VOCS(
-        variables={"core": [-3, 3], "edge": [-2, 2]},
+        variables={"core": [-3, 3], "edge": [-2, 2], "core_on_cube": [-3, 3], "edge_on_cube": [-2, 2]},
         objectives={"energy": "MINIMIZE"},
     )
 
     aposmm = APOSMM(
         vocs,
+        variables_mapping={"x": ["core", "edge"], "x_on_cube": ["core_on_cube", "edge_on_cube"], "f": ["energy"]},
         initial_sample_size=100,
         sample_points=minima,
         localopt_method="LN_BOBYQA",
@@ -68,6 +69,7 @@ if __name__ == "__main__":
         max_active_runs=workflow.nworkers,  # should this match nworkers always? practically?
     )
 
+    # SH TODO - dont want this stuff duplicated - pass with vocs instead
     workflow.gen_specs = GenSpecs(
         persis_in=["x", "x_on_cube", "sim_id", "local_min", "local_pt", "f"],
         generator=aposmm,

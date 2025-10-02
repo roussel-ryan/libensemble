@@ -2,15 +2,15 @@ from abc import abstractmethod
 from typing import List, Optional
 
 import numpy as np
-from generator_standard import Generator
-from generator_standard.vocs import VOCS
+from gest_api import Generator
+from gest_api.vocs import VOCS
 from numpy import typing as npt
 
 from libensemble.comms.comms import QCommProcess  # , QCommThread
 from libensemble.executors import Executor
 from libensemble.message_numbers import EVAL_GEN_TAG, PERSIS_STOP
 from libensemble.tools.tools import add_unique_random_streams
-from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
+from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts, unmap_numpy_array
 
 
 class GeneratorNotStartedException(Exception):
@@ -55,12 +55,18 @@ class LibensembleGenerator(Generator):
 
         self.variables_mapping = variables_mapping
         if not self.variables_mapping:
+            self.variables_mapping = {}
+        # Map variables to x if not already mapped
+        if "x" not in self.variables_mapping:
+            # SH TODO - is this check needed?
             if len(list(self.VOCS.variables.keys())) > 1 or list(self.VOCS.variables.keys())[0] != "x":
-                self.variables_mapping["x"] = list(self.VOCS.variables.keys())
+                self.variables_mapping["x"] = self._get_unmapped_keys(self.VOCS.variables, "x")
+        # Map objectives to f if not already mapped
+        if "f" not in self.variables_mapping:
             if (
                 len(list(self.VOCS.objectives.keys())) > 1 or list(self.VOCS.objectives.keys())[0] != "f"
             ):  # e.g. {"f": ["f"]} doesn't need mapping
-                self.variables_mapping["f"] = list(self.VOCS.objectives.keys())
+                self.variables_mapping["f"] = self._get_unmapped_keys(self.VOCS.objectives, "f")
 
         if len(kwargs) > 0:  # so user can specify gen-specific parameters as kwargs to constructor
             if not self.gen_specs.get("user"):
@@ -73,6 +79,15 @@ class LibensembleGenerator(Generator):
 
     def _validate_vocs(self, vocs) -> None:
         pass
+
+    def _get_unmapped_keys(self, vocs_dict, default_key):
+        """Get keys from vocs_dict that aren't already mapped to other keys in variables_mapping."""
+        # Get all variables that aren't already mapped to other keys
+        mapped_vars = []
+        for mapped_list in self.variables_mapping.values():
+            mapped_vars.extend(mapped_list)
+        unmapped_vars = [v for v in list(vocs_dict.keys()) if v not in mapped_vars]
+        return unmapped_vars
 
     @abstractmethod
     def suggest_numpy(self, num_points: Optional[int] = 0) -> npt.NDArray:
@@ -119,6 +134,7 @@ class PersistentGenInterfacer(LibensembleGenerator):
         self.History = History
         self.libE_info = libE_info
         self.running_gen_f = None
+        self.gen_result = None
 
     def setup(self) -> None:
         """Must be called once before calling suggest/ingest. Initializes the background thread."""
@@ -139,16 +155,24 @@ class PersistentGenInterfacer(LibensembleGenerator):
             user_function=True,
         )
 
-        # this is okay since the object isnt started until the first suggest
+        # This can be set here since the object isnt started until the first suggest
         self.libE_info["comm"] = self.running_gen_f.comm
 
-    def _set_sim_ended(self, results: npt.NDArray) -> npt.NDArray:
-        new_results = np.zeros(len(results), dtype=self.gen_specs["out"] + [("sim_ended", bool), ("f", float)])
-        for field in results.dtype.names:
+    def _prep_fields(self, results: npt.NDArray) -> npt.NDArray:
+        """Filter out fields that are not in persis_in and add sim_ended to the dtype"""
+        filtered_dtype = [
+            (name, results.dtype[name]) for name in results.dtype.names if name in self.gen_specs["persis_in"]
+        ]
+
+        new_dtype = filtered_dtype + [("sim_ended", bool)]
+        new_results = np.zeros(len(results), dtype=new_dtype)
+
+        for field in new_results.dtype.names:
             try:
                 new_results[field] = results[field]
-            except ValueError:  # lets not slot in data that the gen doesnt need?
+            except ValueError:
                 continue
+
         new_results["sim_ended"] = True
         return new_results
 
@@ -167,7 +191,7 @@ class PersistentGenInterfacer(LibensembleGenerator):
     def ingest_numpy(self, results: npt.NDArray, tag: int = EVAL_GEN_TAG) -> None:
         """Send the results of evaluations to the generator, as a NumPy array."""
         if results is not None:
-            results = self._set_sim_ended(results)
+            results = self._prep_fields(results)
             Work = {"libE_info": {"H_rows": np.copy(results["sim_id"]), "persistent": True, "executor": None}}
             self.running_gen_f.send(tag, Work)
             self.running_gen_f.send(
@@ -176,7 +200,40 @@ class PersistentGenInterfacer(LibensembleGenerator):
         else:
             self.running_gen_f.send(tag, None)
 
-    def finalize(self, results: npt.NDArray = None) -> (npt.NDArray, dict, int):
-        """Send any last results to the generator, and it to close down."""
-        self.ingest_numpy(results, PERSIS_STOP)  # conversion happens in ingest
-        return self.running_gen_f.result()
+    def finalize(self) -> None:
+        """Stop the generator process and store the returned data."""
+        self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
+        self.gen_result = self.running_gen_f.result()
+
+    def export(
+        self, user_fields: bool = False, as_dicts: bool = False
+    ) -> tuple[npt.NDArray | list | None, dict | None, int | None]:
+        """Return the generator's results
+        Parameters
+        ----------
+        user_fields : bool, optional
+            If True, return local_H with variables unmapped from arrays back to individual fields.
+            Default is False.
+        as_dicts : bool, optional
+            If True, return local_H as list of dictionaries instead of numpy array.
+            Default is False.
+        Returns
+        -------
+        local_H : npt.NDArray | list
+            Generator history array (unmapped if user_fields=True, as dicts if as_dicts=True).
+        persis_info : dict
+            Persistent information.
+        tag : int
+            Status flag (e.g., FINISHED_PERSISTENT_GEN_TAG).
+        """
+        if not self.gen_result:
+            return (None, None, None)
+        local_H, persis_info, tag = self.gen_result
+        if user_fields and local_H is not None and self.variables_mapping:
+            local_H = unmap_numpy_array(local_H, self.variables_mapping)
+        if as_dicts and local_H is not None:
+            if user_fields and self.variables_mapping:
+                local_H = np_to_list_dicts(local_H, self.variables_mapping, allow_arrays=True)
+            else:
+                local_H = np_to_list_dicts(local_H, allow_arrays=True)
+        return (local_H, persis_info, tag)
