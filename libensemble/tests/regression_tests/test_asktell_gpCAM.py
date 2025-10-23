@@ -22,7 +22,7 @@ import sys
 import warnings
 
 import numpy as np
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 
 from libensemble.alloc_funcs.start_only_persistent import only_persistent_gens as alloc_f
 from libensemble.gen_classes.gpCAM import GP_CAM, GP_CAM_Covar

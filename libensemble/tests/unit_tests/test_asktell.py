@@ -1,4 +1,5 @@
 import numpy as np
+from libensemble.utils.misc import unmap_numpy_array
 
 
 def _check_conversion(H, npp, mapping={}):
@@ -92,6 +93,64 @@ def test_awkward_H():
     _check_conversion(H, npp)
 
 
+def test_unmap_numpy_array_basic():
+    """Test basic unmapping of x and x_on_cube arrays"""
+
+    dtype = [("sim_id", int), ("x", float, (3,)), ("x_on_cube", float, (3,)), ("f", float), ("grad", float, (3,))]
+    H = np.zeros(2, dtype=dtype)
+    H[0] = (0, [1.1, 2.2, 3.3], [0.1, 0.2, 0.3], 10.5, [0.1, 0.2, 0.3])
+    H[1] = (1, [4.4, 5.5, 6.6], [0.4, 0.5, 0.6], 20.7, [0.4, 0.5, 0.6])
+
+    mapping = {"x": ["x0", "x1", "x2"], "x_on_cube": ["x0_cube", "x1_cube", "x2_cube"]}
+    H_unmapped = unmap_numpy_array(H, mapping)
+
+    expected_fields = ["sim_id", "x0", "x1", "x2", "x0_cube", "x1_cube", "x2_cube", "f"]
+    assert all(field in H_unmapped.dtype.names for field in expected_fields)
+
+    assert H_unmapped["x0"][0] == 1.1
+    assert H_unmapped["x1"][0] == 2.2
+    assert H_unmapped["x2"][0] == 3.3
+    assert H_unmapped["x0_cube"][0] == 0.1
+    assert H_unmapped["x1_cube"][0] == 0.2
+    assert H_unmapped["x2_cube"][0] == 0.3
+    # Test that non-mapped array fields are passed through unchanged
+    assert "grad" in H_unmapped.dtype.names
+    assert np.array_equal(H_unmapped["grad"], H["grad"])
+
+
+def test_unmap_numpy_array_single_dimension():
+    """Test unmapping with single dimension"""
+
+    dtype = [("sim_id", int), ("x", float, (1,)), ("f", float)]
+    H = np.zeros(1, dtype=dtype)
+    H[0] = (0, [5.5], 15.0)
+
+    mapping = {"x": ["x0"]}
+    H_unmapped = unmap_numpy_array(H, mapping)
+
+    assert "x0" in H_unmapped.dtype.names
+    assert H_unmapped["x0"][0] == 5.5
+
+
+def test_unmap_numpy_array_edge_cases():
+    """Test edge cases for unmap_numpy_array"""
+
+    dtype = [("sim_id", int), ("x", float, (2,)), ("f", float)]
+    H = np.zeros(1, dtype=dtype)
+    H[0] = (0, [1.0, 2.0], 10.0)
+
+    # No mapping
+    H_no_mapping = unmap_numpy_array(H, {})
+    assert H_no_mapping is H
+
+    # None array
+    H_none = unmap_numpy_array(None, {"x": ["x0", "x1"]})
+    assert H_none is None
+
+
 if __name__ == "__main__":
     test_awkward_list_dict()
     test_awkward_H()
+    test_unmap_numpy_array_basic()
+    test_unmap_numpy_array_single_dimension()
+    test_unmap_numpy_array_edge_cases()

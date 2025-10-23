@@ -8,7 +8,7 @@ These generators, implementations, methods, and subclasses are in BETA, and
 may change in future releases.
 
 The Generator interface is expected to roughly correspond with CAMPA's standard:
-https://github.com/campa-consortium/generator_standard
+https://github.com/campa-consortium/gest-api
 
 libEnsemble is in the process of supporting generator objects that implement the following interface:
 

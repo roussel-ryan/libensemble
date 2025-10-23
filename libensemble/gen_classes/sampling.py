@@ -1,7 +1,7 @@
 """Generator classes providing points using sampling"""
 
 import numpy as np
-from generator_standard.vocs import VOCS
+from gest_api.vocs import VOCS
 
 from libensemble.generators import LibensembleGenerator
 

@@ -17,6 +17,7 @@ from multiprocessing import Event, Process, Queue
 
 import numpy as np
 import psutil
+import traceback
 
 import libensemble.gen_funcs
 from libensemble.message_numbers import EVAL_GEN_TAG, STOP_TAG  # Only used to simulate receiving from manager
@@ -585,8 +586,8 @@ def run_local_tao(user_specs, comm_queue, x0, f0, child_can_read, parent_can_rea
 def opt_runner(run_local_opt, user_specs, comm_queue, x0, f0, child_can_read, parent_can_read):
     try:
         run_local_opt(user_specs, comm_queue, x0, f0, child_can_read, parent_can_read)
-    except Exception as e:
-        comm_queue.put(ErrorMsg(e))
+    except Exception:
+        comm_queue.put(ErrorMsg(traceback.format_exc()))
         parent_can_read.set()
 
 

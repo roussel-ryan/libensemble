@@ -218,7 +218,7 @@ def test_standalone_persistent_aposmm_combined_func():
 def test_asktell_with_persistent_aposmm():
     from math import gamma, pi, sqrt
 
-    from generator_standard.vocs import VOCS
+    from gest_api.vocs import VOCS
 
     import libensemble.gen_funcs
     from libensemble.gen_classes import APOSMM
@@ -228,13 +228,20 @@ def test_asktell_with_persistent_aposmm():
 
     n = 2
 
-    variables = {"core": [-3, 3], "edge": [-2, 2]}
+    variables = {"core": [-3, 3], "edge": [-2, 2], "core_on_cube": [0, 1], "edge_on_cube": [0, 1]}
     objectives = {"energy": "MINIMIZE"}
+
+    variables_mapping = {
+        "x": ["core", "edge"],
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+        "f": ["energy"],
+    }
 
     vocs = VOCS(variables=variables, objectives=objectives)
 
     my_APOSMM = APOSMM(
         vocs,
+        variables_mapping=variables_mapping,
         initial_sample_size=100,
         sample_points=np.round(minima, 1),
         localopt_method="LN_BOBYQA",
@@ -252,9 +259,91 @@ def test_asktell_with_persistent_aposmm():
     _evaluate_aposmm_instance(my_APOSMM)
 
 
+def _run_aposmm_export_test(variables_mapping):
+    """Helper function to run APOSMM export tests with given variables_mapping"""
+    from gest_api.vocs import VOCS
+
+    from libensemble.gen_classes import APOSMM
+
+    variables = {
+        "core": [-3, 3],
+        "edge": [-2, 2],
+        "core_on_cube": [0, 1],
+        "edge_on_cube": [0, 1],
+    }
+    objectives = {"energy": "MINIMIZE"}
+
+    vocs = VOCS(variables=variables, objectives=objectives)
+    aposmm = APOSMM(
+        vocs,
+        variables_mapping=variables_mapping,
+        initial_sample_size=10,
+        localopt_method="LN_BOBYQA",
+        xtol_abs=1e-6,
+        ftol_abs=1e-6,
+        dist_to_bound_multiple=0.5,
+        max_active_runs=6,
+    )
+    # Test basic export before finalize
+    H, _, _ = aposmm.export()
+    print(f"Export before finalize: {H}")  # Debug
+    assert H is None  # Should be None before finalize
+    # Test export after suggest/ingest cycle
+    sample = aposmm.suggest(5)
+    for point in sample:
+        point["energy"] = 1.0  # Mock evaluation
+    aposmm.ingest(sample)
+    aposmm.finalize()
+
+    # Test export with unmapped fields
+    H, _, _ = aposmm.export()
+    if H is not None:
+        assert "x" in H.dtype.names and H["x"].ndim == 2
+        assert "f" in H.dtype.names and H["f"].ndim == 1
+
+    # Test export with user_fields
+    H_unmapped, _, _ = aposmm.export(user_fields=True)
+    print(f"H_unmapped: {H_unmapped}")  # Debug
+    if H_unmapped is not None:
+        assert "core" in H_unmapped.dtype.names
+        assert "edge" in H_unmapped.dtype.names
+        assert "energy" in H_unmapped.dtype.names
+    # Test export with as_dicts
+    H_dicts, _, _ = aposmm.export(as_dicts=True)
+    assert isinstance(H_dicts, list)
+    assert isinstance(H_dicts[0], dict)
+    assert "x" in H_dicts[0]  # x remains as array
+    assert "f" in H_dicts[0]
+    # Test export with both options
+    H_both, _, _ = aposmm.export(user_fields=True, as_dicts=True)
+    assert isinstance(H_both, list)
+    assert "core" in H_both[0]
+    assert "edge" in H_both[0]
+    assert "energy" in H_both[0]
+
+
+@pytest.mark.extra
+def test_aposmm_export():
+    """Test APOSMM export function with different options"""
+
+    # Test with full variables_mapping
+    full_mapping = {
+        "x": ["core", "edge"],
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+        "f": ["energy"],
+    }
+    _run_aposmm_export_test(full_mapping)
+    # Test with just x_on_cube mapping (should auto-map x and f)
+    minimal_mapping = {
+        "x_on_cube": ["core_on_cube", "edge_on_cube"],
+    }
+    _run_aposmm_export_test(minimal_mapping)
+
+
 if __name__ == "__main__":
     test_persis_aposmm_localopt_test()
     test_update_history_optimal()
     test_standalone_persistent_aposmm()
     test_standalone_persistent_aposmm_combined_func()
     test_asktell_with_persistent_aposmm()
+    test_aposmm_export()
