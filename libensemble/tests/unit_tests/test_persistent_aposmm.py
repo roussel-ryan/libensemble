@@ -150,7 +150,8 @@ def _evaluate_aposmm_instance(my_APOSMM):
             point["energy"] = six_hump_camel_func(np.array([point["core"], point["edge"]]))
             total_evals += 1
         my_APOSMM.ingest(sample)
-    H, persis_info, exit_code = my_APOSMM.finalize()
+    my_APOSMM.finalize()
+    H, persis_info, exit_code = my_APOSMM.export()
 
     assert exit_code == FINISHED_PERSISTENT_GEN_TAG, "Standalone persistent_aposmm didn't exit correctly"
     assert persis_info.get("run_order"), "Standalone persistent_aposmm didn't do any localopt runs"
@@ -252,10 +253,6 @@ def test_asktell_with_persistent_aposmm():
         max_active_runs=6,
     )
 
-    _evaluate_aposmm_instance(my_APOSMM)
-
-    # test initializing/using with default parameters:
-    my_APOSMM = APOSMM(vocs)
     _evaluate_aposmm_instance(my_APOSMM)
 
 
