@@ -101,7 +101,7 @@ class APOSMM(PersistentGenInterfacer):
         self.VOCS = vocs
 
         gen_specs = {}
-        persis_info = {"1": np.random.default_rng(random_seed)}
+        persis_info = {}
         libE_info = {}
         gen_specs["gen_f"] = aposmm
         self.n = len(list(self.VOCS.variables.keys()))
