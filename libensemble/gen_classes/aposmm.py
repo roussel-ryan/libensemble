@@ -129,13 +129,6 @@ class APOSMM(PersistentGenInterfacer):
             if val is not None:
                 gen_specs["user"][k] = val
 
-        gen_specs["out"] = [
-            ("x", float, self.n),
-            ("x_on_cube", float, self.n),
-            ("sim_id", int),
-            ("local_min", bool),
-            ("local_pt", bool),
-        ]
         gen_specs["persis_in"] = ["x", "f", "local_pt", "sim_id", "sim_ended", "x_on_cube", "local_min"]
         super().__init__(vocs, History, persis_info, gen_specs, libE_info, **kwargs)
 
