@@ -242,15 +242,15 @@ def test_asktell_with_persistent_aposmm():
 
     my_APOSMM = APOSMM(
         vocs,
-        variables_mapping=variables_mapping,
+        max_active_runs=6,
         initial_sample_size=100,
+        variables_mapping=variables_mapping,
         sample_points=np.round(minima, 1),
         localopt_method="LN_BOBYQA",
         rk_const=0.5 * ((gamma(1 + (n / 2)) * 5) ** (1 / n)) / sqrt(pi),
         xtol_abs=1e-6,
         ftol_abs=1e-6,
         dist_to_bound_multiple=0.5,
-        max_active_runs=6,
     )
 
     _evaluate_aposmm_instance(my_APOSMM)
@@ -273,13 +273,13 @@ def _run_aposmm_export_test(variables_mapping):
     vocs = VOCS(variables=variables, objectives=objectives)
     aposmm = APOSMM(
         vocs,
-        variables_mapping=variables_mapping,
+        max_active_runs=6,
         initial_sample_size=10,
+        variables_mapping=variables_mapping,
         localopt_method="LN_BOBYQA",
         xtol_abs=1e-6,
         ftol_abs=1e-6,
         dist_to_bound_multiple=0.5,
-        max_active_runs=6,
     )
     # Test basic export before finalize
     H, _, _ = aposmm.export()

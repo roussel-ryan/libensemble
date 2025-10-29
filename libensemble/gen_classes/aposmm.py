@@ -35,21 +35,22 @@ class APOSMM(PersistentGenInterfacer):
         "x": ["var1", "var2", "var3"],
         "x_on_cube": ["var1_on_cube", "var2_on_cube", "var3_on_cube"],
     }
-    gen = APOSMM(vocs, variables_mapping=variables_mapping, ...)
+    gen = APOSMM(vocs, 3, 3, variables_mapping=variables_mapping, ...)
 
     Parameters
     ----------
     vocs: VOCS
         The VOCS object, adhering to the VOCS interface from the Generator Standard.
 
+    max_active_runs: int
+        Bound on number of runs APOSMM is advancing.
+
+    initial_sample_size: int
+        Number of uniformly sampled points to be evaluated internally before starting
+        the localopt runs. `.suggest()` will return samples from these points.
+
     History: npt.NDArray = []
         An optional history of previously evaluated points.
-
-    initial_sample_size: int = 100
-        Number of uniformly sampled points
-        to be evaluated before starting the localopt runs. Can be
-        zero if no additional sampling is desired, but if zero there must be past values
-        provided in the History.
 
     sample_points: npt.NDArray = None
         Points to be sampled (original domain).
@@ -73,9 +74,6 @@ class APOSMM(PersistentGenInterfacer):
         What fraction of the distance to the nearest boundary should the initial
         step size be in localopt runs.
 
-    max_active_runs: int = 6
-        Bound on number of runs APOSMM is advancing.
-
     random_seed: int = 1
         Seed for the random number generator.
     """
@@ -83,15 +81,15 @@ class APOSMM(PersistentGenInterfacer):
     def __init__(
         self,
         vocs: VOCS,
+        max_active_runs: int,
+        initial_sample_size: int,
         History: npt.NDArray = [],
-        initial_sample_size: int = 100,
         sample_points: npt.NDArray = None,
         localopt_method: str = "LN_BOBYQA",
         rk_const: float = None,
         xtol_abs: float = 1e-6,
         ftol_abs: float = 1e-6,
         dist_to_bound_multiple: float = 0.5,
-        max_active_runs: int = 6,
         random_seed: int = 1,
         **kwargs,
     ) -> None:
@@ -151,7 +149,7 @@ class APOSMM(PersistentGenInterfacer):
             gen_specs["persis_in"].append("fvec")
 
         # SH - Need to know if this is gen_on_manager or not.
-        self.persis_info["nworkers"] = kwargs.get("nworkers", gen_specs["user"].get("max_active_runs", 4))
+        self.persis_info["nworkers"] = gen_specs["user"].get("max_active_runs")
         self.all_local_minima = []
         self._suggest_idx = 0
         self._last_suggest = None
