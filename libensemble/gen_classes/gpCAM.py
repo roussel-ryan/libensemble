@@ -30,7 +30,7 @@ class GP_CAM(LibensembleGenerator):
     This generation function constructs a global surrogate of `f` values.
 
     It is a batched method that produces a first batch uniformly random from
-    (lb, ub). On subequent iterations, it calls an optimization method to
+    (lb, ub). On subsequent iterations, it calls an optimization method to
     produce the next batch of points. This optimization might be too slow
     (relative to the simulation evaluation time) for some use cases.
     """
