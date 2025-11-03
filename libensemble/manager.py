@@ -12,7 +12,7 @@ import socket
 import sys
 import time
 import traceback
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -291,7 +291,7 @@ class Manager:
         H = self.hist.H
         return np.any(filter_nans(H[key][H["sim_ended"]]) <= val)
 
-    def term_test(self, logged: bool = True) -> Union[bool, int]:
+    def term_test(self, logged: bool = True) -> bool | int:
         """Checks termination criteria"""
         for retval, key, testf in self.term_tests:
             if key in self.exit_criteria:
@@ -514,7 +514,7 @@ class Manager:
             self.live_data.live_update(self.hist)
 
         if D_recv.get("persis_info"):
-            persis_info[w].update(D_recv["persis_info"])
+            persis_info.setdefault(int(w), {}).update(D_recv["persis_info"])
 
     def _handle_msg_from_worker(self, persis_info: dict, w: int) -> None:
         """Handles a message from worker w"""
@@ -532,7 +532,7 @@ class Manager:
                 self._kill_workers()
                 raise WorkerException(f"Received error message from worker {w}", D_recv.msg, D_recv.exc)
         elif isinstance(D_recv, logging.LogRecord):
-            logger.debug(f"Manager received a log message from worker {w}")
+            logger.vdebug(f"Manager received a log message from worker {w}")
             logging.getLogger(D_recv.name).handle(D_recv)
         else:
             logger.debug(f"Manager received data message from worker {w}")
@@ -580,7 +580,7 @@ class Manager:
                     rows_to_send = np.where(self.hist.H["sim_ended"] & ~self.hist.H["gen_informed"])[0]
                     work = {
                         "H_fields": self.gen_specs["persis_in"],
-                        "persis_info": persis_info[w],
+                        "persis_info": persis_info.get(w),
                         "tag": PERSIS_STOP,
                         "libE_info": {"persistent": True, "H_rows": rows_to_send},
                     }
@@ -615,6 +615,7 @@ class Manager:
         if self.live_data is not None:
             self.live_data.finalize(self.hist)
 
+        persis_info["num_gens_started"] = 0
         return persis_info, exit_flag, self.elapsed()
 
     def _sim_max_given(self) -> bool:
@@ -678,7 +679,7 @@ class Manager:
 
     def run(self, persis_info: dict) -> (dict, int, int):
         """Runs the manager"""
-        logger.info(f"Manager initiated on node {socket.gethostname()}")
+        logger.debug(f"Manager initiated on node {socket.gethostname()}")
         logger.info(f"Manager exit_criteria: {self.exit_criteria}")
 
         # Continue receiving and giving until termination test is satisfied

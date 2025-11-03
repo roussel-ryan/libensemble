@@ -8,7 +8,6 @@
 .. _Conda: https://docs.conda.io/en/latest/
 .. _conda-forge: https://conda-forge.org/
 .. _Contributions: https://github.com/Libensemble/libensemble/blob/main/CONTRIBUTING.rst
-.. _Coveralls: https://coveralls.io/github/Libensemble/libensemble?branch=main
 .. _DEAP: https://deap.readthedocs.io/en/master/overview.html
 .. _DFO-LS: https://github.com/numericalalgorithmsgroup/dfols
 .. _ECNoise: https://www.mcs.anl.gov/~wild/cnoise/
@@ -51,7 +50,7 @@
 .. _Surmise: https://surmise.readthedocs.io/en/latest/index.html
 .. _SWIG: http://swig.org/
 .. _tarball: https://github.com/Libensemble/libensemble/releases/latest
-.. _Tasmanian: https://tasmanian.ornl.gov/
+.. _Tasmanian: https://github.com/ORNL/Tasmanian
 .. _tomli: https://pypi.org/project/tomli/
 .. _tqdm: https://tqdm.github.io/
 .. _user guide: https://libensemble.readthedocs.io/en/latest/programming_libE.html

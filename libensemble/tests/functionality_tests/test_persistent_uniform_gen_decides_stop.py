@@ -4,7 +4,7 @@ stop a run.
 
 Execute via one of the following commands (e.g. 3 workers):
    mpiexec -np 5 python test_persistent_uniform_gen_decides_stop.py
-   python test_persistent_uniform_gen_decides_stop.py --nworkers 4 --comms local
+   python test_persistent_uniform_gen_decides_stop.py --nworkers 4
    python test_persistent_uniform_gen_decides_stop.py --nworkers 4 --comms tcp
 
 The number of concurrent evaluations of the objective function with 2 gens will be 2:
@@ -82,9 +82,7 @@ if __name__ == "__main__":
             assert (
                 sum(counts == init_batch_size) >= ngens
             ), "The initial batch of each gen should be common among initial_batch_size number of points"
-            assert (
-                len(counts) > 1
-            ), "All gen_ended_times are the same; they should be different for the async case"
+            assert len(counts) > 1, "All gen_ended_times are the same; they should be different for the async case"
 
             gen_workers = np.unique(H["gen_worker"])
             print("Generators that issued points", gen_workers)

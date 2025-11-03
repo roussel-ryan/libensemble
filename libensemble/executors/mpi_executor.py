@@ -15,13 +15,11 @@ resource manager when submitting tasks.
 import logging
 import os
 import time
-from typing import List, Optional, Union
 
 import libensemble.utils.launcher as launcher
 from libensemble.executors.executor import Executor, ExecutorException, Task
 from libensemble.executors.mpi_runner import MPIRunner
 from libensemble.resources.mpi_resources import get_MPI_variant
-from libensemble.resources.resources import Resources
 
 logger = logging.getLogger(__name__)
 # To change logging level for just this module
@@ -47,29 +45,32 @@ class MPIExecutor(Executor):
         information using the ``custom_info`` argument. This takes
         a dictionary of values.
 
-        The allowable fields are::
+        The allowable fields are:
 
-            'mpi_runner' [string]:
-                Select runner: 'mpich', 'openmpi', 'aprun', 'srun', 'jsrun', 'custom'
-                All except 'custom' relate to runner classes in libEnsemble.
+        .. parsed-literal::
+
+            **'mpi_runner'** [string]:
+                Select runner: `'mpich'`, `'openmpi'`, `'aprun'`, `'srun'`, `'jsrun'`, `'custom'`
+                All except `'custom'` relate to runner classes in libEnsemble.
                 Custom allows user to define their own run-lines but without parsing
                 arguments or making use of auto-resources.
-            'runner_name' [string]:
-                Runner name: Replaces run command if present. All runners have a default
-                except for 'custom'.
-            'subgroup_launch' [bool]:
+            **'runner_name'** [string]:
+                The literal string that appears at the front of the run command.
+                This is typically 'mpirun', 'srun', etc., and can be a full path.
+                Defaults exist for all runners except 'custom'.
+            **'subgroup_launch'** [bool]:
                 Whether MPI runs should be initiated in a new process group. This needs
                 to be correct for kills to work correctly. Use the standalone test at
-                libensemble/tests/standalone_tests/kill_test to determine correct value
+                `libensemble/tests/standalone_tests/kill_test` to determine correct value
                 for a system.
 
-        For example::
+    For example::
 
-            customizer = {'mpi_runner': 'mpich',
-                          'runner_name': 'wrapper -x mpich'}
+        customizer = {'mpi_runner': 'mpich',
+                      'runner_name': 'wrapper -x mpich'}
 
-            from libensemble.executors.mpi_executor import MPIExecutor
-            exctr = MPIExecutor(custom_info=customizer)
+        from libensemble.executors.mpi_executor import MPIExecutor
+        exctr = MPIExecutor(custom_info=customizer)
 
 
     """
@@ -134,11 +135,11 @@ class MPIExecutor(Executor):
         self.gen_nprocs = libE_info.get("num_procs")
         self.gen_ngpus = libE_info.get("num_gpus")
 
-    def set_resources(self, resources: Resources) -> None:
+    def set_resources(self, resources) -> None:
         self.resources = resources
 
     def _launch_with_retries(
-        self, task: Task, subgroup_launch: bool, wait_on_start: Union[bool, int], run_cmd: List[str], use_shell: bool
+        self, task: Task, subgroup_launch: bool, wait_on_start: bool, run_cmd: list[str], use_shell: bool
     ) -> None:
         """Launch task with retry mechanism"""
         retry_count = 0
@@ -166,8 +167,7 @@ class MPIExecutor(Executor):
                 retry_count += 1
             else:
                 if wait_on_start:
-                    wait_time = wait_on_start if isinstance(wait_on_start, int) else self.fail_time
-                    self._wait_on_start(task, wait_time)
+                    self._wait_on_start(task, self.fail_time)
                 task.poll()
 
                 if task.state == "FAILED":
@@ -187,25 +187,25 @@ class MPIExecutor(Executor):
 
     def submit(
         self,
-        calc_type: Optional[str] = None,
-        app_name: Optional[str] = None,
-        num_procs: Optional[int] = None,
-        num_nodes: Optional[int] = None,
-        procs_per_node: Optional[int] = None,
-        num_gpus: Optional[int] = None,
-        machinefile: Optional[str] = None,
-        app_args: Optional[str] = None,
-        stdout: Optional[str] = None,
-        stderr: Optional[str] = None,
-        stage_inout: Optional[str] = None,
-        hyperthreads: Optional[bool] = False,
-        dry_run: Optional[bool] = False,
-        wait_on_start: Optional[Union[bool, int]] = False,
-        extra_args: Optional[str] = None,
-        auto_assign_gpus: Optional[bool] = False,
-        match_procs_to_gpus: Optional[bool] = False,
-        env_script: Optional[str] = None,
-        mpi_runner_type: Optional[Union[str, dict]] = None,
+        calc_type: str | None = None,
+        app_name: str | None = None,
+        num_procs: int | None = None,
+        num_nodes: int | None = None,
+        procs_per_node: int | None = None,
+        num_gpus: int | None = None,
+        machinefile: str | None = None,
+        app_args: str | None = None,
+        stdout: str | None = None,
+        stderr: str | None = None,
+        stage_inout: str | None = None,
+        hyperthreads: bool | None = False,
+        dry_run: bool | None = False,
+        wait_on_start: bool | None = False,
+        extra_args: str | None = None,
+        auto_assign_gpus: bool | None = False,
+        match_procs_to_gpus: bool | None = False,
+        env_script: str | None = None,
+        mpi_runner_type: str | dict | None = None,
     ) -> Task:
         """Creates a new task, and either executes or schedules execution.
 
@@ -260,10 +260,9 @@ class MPIExecutor(Executor):
             Whether this is a dry_run - no task will be launched; instead
             runline is printed to logger (at INFO level)
 
-        wait_on_start: bool or int, Optional
+        wait_on_start: bool, Optional
             Whether to wait for task to be polled as RUNNING (or other
-            active/end state) before continuing. If an integer N is supplied,
-            wait at most N seconds.
+            active/end state) before continuing.
 
         extra_args: str, Optional
             Additional command line arguments to supply to MPI runner. If
@@ -337,6 +336,9 @@ class MPIExecutor(Executor):
             mpi_runner_obj = self._create_mpi_runner_from_config(mpi_config)
         else:
             mpi_runner_obj = self.mpi_runner_obj or self._create_mpi_runner_from_attr()
+
+        if env_script is None and mpi_runner_obj is None:
+            raise ExecutorException("No valid MPI runner was found")
 
         mpi_specs = mpi_runner_obj.get_mpi_specs(
             task,

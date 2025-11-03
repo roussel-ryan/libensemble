@@ -2,12 +2,11 @@ import inspect
 import logging
 import logging.handlers
 import time
-from typing import Optional
 
 import numpy.typing as npt
 
 from libensemble.comms.comms import QCommThread
-from libensemble.generators import LibensembleGenerator, LibensembleGenThreadInterfacer
+from libensemble.generators import LibensembleGenerator, PersistentGenInterfacer
 from libensemble.message_numbers import EVAL_GEN_TAG, FINISHED_PERSISTENT_GEN_TAG, PERSIS_STOP, STOP_TAG
 from libensemble.tools.persistent_support import PersistentSupport
 from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
@@ -23,12 +22,12 @@ class Runner:
         if specs.get("threaded"):
             return ThreadRunner(specs)
         if (generator := specs.get("generator")) is not None:
-            if isinstance(generator, LibensembleGenThreadInterfacer):
+            if isinstance(generator, PersistentGenInterfacer):
                 return LibensembleGenThreadRunner(specs)
             if isinstance(generator, LibensembleGenerator):
                 return LibensembleGenRunner(specs)
             else:
-                return AskTellGenRunner(specs)
+                return StandardGenRunner(specs)
         else:
             return Runner(specs)
 
@@ -41,7 +40,7 @@ class Runner:
         args = [calc_in, persis_info, self.specs, libE_info]
         return args[:nparams]
 
-    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, Optional[int]):
+    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, int | None):
         """User function called in-place"""
         args = self._truncate_args(calc_in, persis_info, libE_info)
         return self.f(*args)
@@ -49,7 +48,9 @@ class Runner:
     def shutdown(self) -> None:
         pass
 
-    def run(self, calc_in: npt.NDArray, Work: dict) -> (npt.NDArray, dict, Optional[int]):
+    def run(self, calc_in: npt.NDArray, Work: dict) -> (npt.NDArray, dict, int | None):
+        if Work["persis_info"] is None:
+            Work["persis_info"] = {}
         return self._result(calc_in, Work["persis_info"], Work["libE_info"])
 
 
@@ -69,7 +70,7 @@ class GlobusComputeRunner(Runner):
         else:
             return Executor
 
-    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, Optional[int]):
+    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, int | None):
         from libensemble.worker import Worker
 
         libE_info["comm"] = None  # 'comm' object not pickle-able
@@ -88,7 +89,7 @@ class ThreadRunner(Runner):
         super().__init__(specs)
         self.thread_handle = None
 
-    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, Optional[int]):
+    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, int | None):
         args = self._truncate_args(calc_in, persis_info, libE_info)
         self.thread_handle = QCommThread(self.f, None, *args, user_function=True)
         self.thread_handle.run()
@@ -99,82 +100,106 @@ class ThreadRunner(Runner):
             self.thread_handle.terminate()
 
 
-class AskTellGenRunner(Runner):
-    """Interact with ask/tell generator. Base class initialized for third-party generators."""
+class StandardGenRunner(Runner):
+    """Interact with suggest/ingest generator. Base class initialized for third-party generators."""
 
     def __init__(self, specs):
         super().__init__(specs)
         self.gen = specs.get("generator")
 
     def _get_points_updates(self, batch_size: int) -> (npt.NDArray, npt.NDArray):
-        # no ask_updates on external gens
-        return (list_dicts_to_np(self.gen.ask(batch_size), dtype=self.specs.get("out")), None)
+        # no suggest_updates on external gens
+        return (
+            list_dicts_to_np(
+                self.gen.suggest(batch_size),
+                dtype=self.specs.get("out"),
+                mapping=getattr(self.gen, "variables_mapping", {}),
+            ),
+            None,
+        )
 
-    def _convert_tell(self, x: npt.NDArray) -> list:
-        self.gen.tell(np_to_list_dicts(x))
+    def _convert_ingest(self, x: npt.NDArray) -> list:
+        self.gen.ingest(np_to_list_dicts(x))
 
     def _loop_over_gen(self, tag, Work, H_in):
-        """Interact with ask/tell generator that *does not* contain a background thread"""
+        """Interact with suggest/ingest generator that *does not* contain a background thread"""
         while tag not in [PERSIS_STOP, STOP_TAG]:
             batch_size = self.specs.get("batch_size") or len(H_in)
             H_out, _ = self._get_points_updates(batch_size)
             tag, Work, H_in = self.ps.send_recv(H_out)
-            self._convert_tell(H_in)
+            self._convert_ingest(H_in)
         return H_in
 
-    def _get_initial_ask(self, libE_info) -> npt.NDArray:
+    def _get_initial_suggest(self, libE_info) -> npt.NDArray:
         """Get initial batch from generator based on generator type"""
         initial_batch = self.specs.get("initial_batch_size") or self.specs.get("batch_size") or libE_info["batch_size"]
-        H_out = self.gen.ask(initial_batch)
+        H_out = self.gen.suggest(initial_batch)
         return H_out
 
     def _start_generator_loop(self, tag, Work, H_in):
         """Start the generator loop after choosing best way of giving initial results to gen"""
-        self.gen.tell(np_to_list_dicts(H_in))
+        self.gen.ingest(np_to_list_dicts(H_in, mapping=getattr(self.gen, "variables_mapping", {})))
         return self._loop_over_gen(tag, Work, H_in)
 
     def _persistent_result(self, calc_in, persis_info, libE_info):
         """Setup comms with manager, setup gen, loop gen to completion, return gen's results"""
         self.ps = PersistentSupport(libE_info, EVAL_GEN_TAG)
         # libE gens will hit the following line, but list_dicts_to_np will passthrough if the output is a numpy array
-        H_out = list_dicts_to_np(self._get_initial_ask(libE_info), dtype=self.specs.get("out"))
+        H_out = list_dicts_to_np(
+            self._get_initial_suggest(libE_info),
+            dtype=self.specs.get("out"),
+            mapping=getattr(self.gen, "variables_mapping", {}),
+        )
         tag, Work, H_in = self.ps.send_recv(H_out)  # evaluate the initial sample
-        final_H_in = self._start_generator_loop(tag, Work, H_in)
-        return self.gen.final_tell(final_H_in), FINISHED_PERSISTENT_GEN_TAG
+        final_H_out = self._start_generator_loop(tag, Work, H_in)
+        self.gen.finalize()
+        return final_H_out, FINISHED_PERSISTENT_GEN_TAG
 
-    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, Optional[int]):
+    def _result(self, calc_in: npt.NDArray, persis_info: dict, libE_info: dict) -> (npt.NDArray, dict, int):
         if libE_info.get("persistent"):
             return self._persistent_result(calc_in, persis_info, libE_info)
-        raise ValueError("ask/tell generators must run in persistent mode. This may be the default in the future.")
+        raise ValueError(
+            "suggest/ingest generators must run in persistent mode. This may be the default in the future."
+        )
 
 
-class LibensembleGenRunner(AskTellGenRunner):
-    def _get_initial_ask(self, libE_info) -> npt.NDArray:
+class LibensembleGenRunner(StandardGenRunner):
+    def _get_initial_suggest(self, libE_info) -> npt.NDArray:
         """Get initial batch from generator based on generator type"""
-        H_out = self.gen.ask_numpy(libE_info["batch_size"])  # OR GEN SPECS INITIAL BATCH SIZE
+        initial_batch = self.specs.get("initial_batch_size") or self.specs.get("batch_size") or libE_info["batch_size"]
+        H_out = self.gen.suggest_numpy(initial_batch)
         return H_out
 
     def _get_points_updates(self, batch_size: int) -> (npt.NDArray, list):
-        return self.gen.ask_numpy(batch_size), self.gen.ask_updates()
+        numpy_out = self.gen.suggest_numpy(batch_size)
+        if callable(getattr(self.gen, "suggest_updates", None)):
+            updates = self.gen.suggest_updates()
+        else:
+            updates = None
+        return numpy_out, updates
 
-    def _convert_tell(self, x: npt.NDArray) -> list:
-        self.gen.tell_numpy(x)
+    def _convert_ingest(self, x: npt.NDArray) -> list:
+        self.gen.ingest_numpy(x)
 
     def _start_generator_loop(self, tag, Work, H_in) -> npt.NDArray:
         """Start the generator loop after choosing best way of giving initial results to gen"""
-        self.gen.tell_numpy(H_in)
+        self.gen.ingest_numpy(H_in)
         return self._loop_over_gen(tag, Work, H_in)  # see parent class
 
 
-class LibensembleGenThreadRunner(AskTellGenRunner):
-    def _get_initial_ask(self, libE_info) -> npt.NDArray:
+class LibensembleGenThreadRunner(StandardGenRunner):
+    def _get_initial_suggest(self, libE_info) -> npt.NDArray:
         """Get initial batch from generator based on generator type"""
-        return self.gen.ask_numpy()  # libE really needs to receive the *entire* initial batch from a threaded gen
+        return self.gen.suggest_numpy()  # libE really needs to receive the *entire* initial batch from a threaded gen
 
-    def _ask_and_send(self):
+    def _suggest_and_send(self):
         """Loop over generator's outbox contents, send to manager"""
-        while self.gen.outbox.qsize():  # recv/send any outstanding messages
-            points, updates = self.gen.ask_numpy(), self.gen.ask_updates()
+        while not self.gen.running_gen_f.outbox.empty():  # recv/send any outstanding messages
+            points = self.gen.suggest_numpy()
+            if callable(getattr(self.gen, "suggest_updates", None)):
+                updates = self.gen.suggest_updates()
+            else:
+                updates = None
             if updates is not None and len(updates):
                 self.ps.send(points)
                 for i in updates:
@@ -186,9 +211,10 @@ class LibensembleGenThreadRunner(AskTellGenRunner):
         """Cycle between moving all outbound / inbound messages between threaded gen and manager"""
         while True:
             time.sleep(0.0025)  # dont need to ping the gen relentlessly. Let it calculate. 400hz
-            self._ask_and_send()
+            self._suggest_and_send()
             while self.ps.comm.mail_flag():  # receive any new messages from Manager, give all to gen
                 tag, _, H_in = self.ps.recv()
                 if tag in [STOP_TAG, PERSIS_STOP]:
-                    return H_in  # this will get inserted into final_tell. this breaks loop
-                self.gen.tell_numpy(H_in)
+                    self.gen.ingest_numpy(H_in, PERSIS_STOP)
+                    return self.gen.running_gen_f.result()
+                self.gen.ingest_numpy(H_in)

@@ -1,116 +1,100 @@
-# import queue as thread_queue
-from abc import ABC, abstractmethod
-from multiprocessing import Manager
-
-# from multiprocessing import Queue as process_queue
+from abc import abstractmethod
 from typing import List, Optional
 
 import numpy as np
+from gest_api import Generator
+from gest_api.vocs import VOCS
 from numpy import typing as npt
 
-from libensemble.comms.comms import QComm, QCommProcess  # , QCommThread
+from libensemble.comms.comms import QCommProcess  # , QCommThread
 from libensemble.executors import Executor
 from libensemble.message_numbers import EVAL_GEN_TAG, PERSIS_STOP
 from libensemble.tools.tools import add_unique_random_streams
-from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
-
-"""
-NOTE: These generators, implementations, methods, and subclasses are in BETA, and
-      may change in future releases.
-
-      The Generator interface is expected to roughly correspond with CAMPA's standard:
-      https://github.com/campa-consortium/generator_standard
-"""
+from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts, unmap_numpy_array
 
 
-class Generator(ABC):
-    """
-
-    .. code-block:: python
-
-        from libensemble.specs import GenSpecs
-        from libensemble.generators import Generator
-
-
-        class MyGenerator(Generator):
-            def __init__(self, param):
-                self.param = param
-                self.model = None
-
-            def ask(self, num_points):
-                return create_points(num_points, self.param)
-
-            def tell(self, results):
-                self.model = update_model(results, self.model)
-
-            def final_tell(self, results):
-                self.tell(results)
-                return list(self.model)
-
-
-        my_generator = MyGenerator(my_parameter=100)
-        gen_specs = GenSpecs(generator=my_generator, ...)
-    """
-
-    @abstractmethod
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize the Generator object on the user-side. Constants, class-attributes,
-        and preparation goes here.
-
-        .. code-block:: python
-
-            my_generator = MyGenerator(my_parameter, batch_size=10)
-        """
-
-    @abstractmethod
-    def ask(self, num_points: Optional[int]) -> List[dict]:
-        """
-        Request the next set of points to evaluate.
-        """
-
-    def ask_updates(self) -> List[npt.NDArray]:
-        """
-        Request any updates to previous points, e.g. minima discovered, points to cancel.
-        """
-
-    def tell(self, results: List[dict]) -> None:
-        """
-        Send the results of evaluations to the generator.
-        """
-
-    def final_tell(self, results: List[dict], *args, **kwargs) -> Optional[npt.NDArray]:
-        """
-        Send the last set of results to the generator, instruct it to cleanup, and
-        optionally retrieve an updated final state of evaluations. This is a separate
-        method to simplify the common pattern of noting internally if a
-        specific tell is the last. This will be called only once.
-        """
+class GeneratorNotStartedException(Exception):
+    """Exception raised by a threaded/multiprocessed generator upon being suggested without having been started"""
 
 
 class LibensembleGenerator(Generator):
-    """Internal implementation of Generator interface for use with libEnsemble, or for those who
-    prefer numpy arrays. ``ask/tell`` methods communicate lists of dictionaries, like the standard.
-    ``ask_numpy/tell_numpy`` methods communicate numpy arrays containing the same data.
+    """
+    Generator interface that accepts the classic History, persis_info, gen_specs, libE_info parameters after VOCS.
+
+    ``suggest/ingest`` methods communicate lists of dictionaries, like the standard.
+    ``suggest_numpy/ingest_numpy`` methods communicate numpy arrays containing the same data.
+
+    .. note::
+        Most LibensembleGenerator instances operate on "x" for variables and "f" for objectives internally.
+        By default we map "x" to the VOCS variables and "f" to the VOCS objectives, which works for most use cases.
+        If a given generator iterates internally over multiple, multi-dimensional variables or objectives,
+        then providing a custom ``variables_mapping`` is recommended.
+
+        For instance:
+            ``variables_mapping = {"x": ["core", "edge"],
+                                   "y": ["mirror-x", "mirror-y"],
+                                   "f": ["energy"],
+                                   "grad": ["grad_x", "grad_y"]}``.
     """
 
     def __init__(
-        self, History: npt.NDArray = [], persis_info: dict = {}, gen_specs: dict = {}, libE_info: dict = {}, **kwargs
+        self,
+        VOCS: VOCS,
+        History: npt.NDArray = [],
+        persis_info: dict = {},
+        gen_specs: dict = {},
+        libE_info: dict = {},
+        variables_mapping: dict = {},
+        **kwargs,
     ):
+        self._validate_vocs(VOCS)
+        self.VOCS = VOCS
+        self.History = History
         self.gen_specs = gen_specs
+        self.libE_info = libE_info
+
+        self.variables_mapping = variables_mapping
+        if not self.variables_mapping:
+            self.variables_mapping = {}
+        # Map variables to x if not already mapped
+        if "x" not in self.variables_mapping:
+            # SH TODO - is this check needed?
+            if len(list(self.VOCS.variables.keys())) > 1 or list(self.VOCS.variables.keys())[0] != "x":
+                self.variables_mapping["x"] = self._get_unmapped_keys(self.VOCS.variables, "x")
+        # Map objectives to f if not already mapped
+        if "f" not in self.variables_mapping:
+            if (
+                len(list(self.VOCS.objectives.keys())) > 1 or list(self.VOCS.objectives.keys())[0] != "f"
+            ):  # e.g. {"f": ["f"]} doesn't need mapping
+                self.variables_mapping["f"] = self._get_unmapped_keys(self.VOCS.objectives, "f")
+
         if len(kwargs) > 0:  # so user can specify gen-specific parameters as kwargs to constructor
-            self.gen_specs["user"] = kwargs
-        if not persis_info:
+            if not self.gen_specs.get("user"):
+                self.gen_specs["user"] = {}
+            self.gen_specs["user"].update(kwargs)
+        if not persis_info.get("rand_stream"):
             self.persis_info = add_unique_random_streams({}, 4, seed=4321)[1]
         else:
             self.persis_info = persis_info
 
+    def _validate_vocs(self, vocs) -> None:
+        pass
+
+    def _get_unmapped_keys(self, vocs_dict, default_key):
+        """Get keys from vocs_dict that aren't already mapped to other keys in variables_mapping."""
+        # Get all variables that aren't already mapped to other keys
+        mapped_vars = []
+        for mapped_list in self.variables_mapping.values():
+            mapped_vars.extend(mapped_list)
+        unmapped_vars = [v for v in list(vocs_dict.keys()) if v not in mapped_vars]
+        return unmapped_vars
+
     @abstractmethod
-    def ask_numpy(self, num_points: Optional[int] = 0) -> npt.NDArray:
+    def suggest_numpy(self, num_points: Optional[int] = 0) -> npt.NDArray:
         """Request the next set of points to evaluate, as a NumPy array."""
 
     @abstractmethod
-    def tell_numpy(self, results: npt.NDArray) -> None:
+    def ingest_numpy(self, results: npt.NDArray) -> None:
         """Send the results, as a NumPy array, of evaluations to the generator."""
 
     @staticmethod
@@ -120,55 +104,48 @@ class LibensembleGenerator(Generator):
             for item in dict_list
         ]
 
-    def ask(self, num_points: Optional[int] = 0) -> List[dict]:
+    def suggest(self, num_points: Optional[int] = 0) -> List[dict]:
         """Request the next set of points to evaluate."""
-        return LibensembleGenerator.convert_np_types(np_to_list_dicts(self.ask_numpy(num_points)))
+        return LibensembleGenerator.convert_np_types(
+            np_to_list_dicts(self.suggest_numpy(num_points), mapping=self.variables_mapping)
+        )
 
-    def tell(self, results: List[dict]) -> None:
+    def ingest(self, results: List[dict]) -> None:
         """Send the results of evaluations to the generator."""
-        self.tell_numpy(list_dicts_to_np(results))
-        # Note that although we'd prefer to have a complete dtype available, the gen
-        # doesn't have access to sim_specs["out"] currently.
+        self.ingest_numpy(list_dicts_to_np(results, mapping=self.variables_mapping))
 
 
-class LibensembleGenThreadInterfacer(LibensembleGenerator):
-    """Implement ask/tell for traditionally written libEnsemble persistent generator functions.
+class PersistentGenInterfacer(LibensembleGenerator):
+    """Implement suggest/ingest for traditionally written libEnsemble persistent generator functions.
     Still requires a handful of libEnsemble-specific data-structures on initialization.
     """
 
     def __init__(
-        self, History: npt.NDArray = [], persis_info: dict = {}, gen_specs: dict = {}, libE_info: dict = {}, **kwargs
+        self,
+        VOCS: VOCS,
+        History: npt.NDArray = [],
+        persis_info: dict = {},
+        gen_specs: dict = {},
+        libE_info: dict = {},
+        **kwargs,
     ) -> None:
-        super().__init__(History, persis_info, gen_specs, libE_info, **kwargs)
+        super().__init__(VOCS, History, persis_info, gen_specs, libE_info, **kwargs)
         self.gen_f = gen_specs["gen_f"]
         self.History = History
-        self.persis_info = persis_info
         self.libE_info = libE_info
-        self.thread = None
+        self.running_gen_f = None
+        self.gen_result = None
 
     def setup(self) -> None:
-        """Must be called once before calling ask/tell. Initializes the background thread."""
-        # self.inbox = thread_queue.Queue()  # sending betweween HERE and gen
-        # self.outbox = thread_queue.Queue()
-        self.m = Manager()
-        self.inbox = self.m.Queue()
-        self.outbox = self.m.Queue()
-
-        comm = QComm(self.inbox, self.outbox)
-        self.libE_info["comm"] = comm  # replacing comm so gen sends HERE instead of manager
+        """Must be called once before calling suggest/ingest. Initializes the background thread."""
+        if self.running_gen_f is not None:
+            return
+        # SH this contains the thread lock -  removing.... wrong comm to pass on anyway.
+        if hasattr(Executor.executor, "comm"):
+            del Executor.executor.comm
         self.libE_info["executor"] = Executor.executor
 
-        # self.thread = QCommThread(  # TRY A PROCESS
-        #     self.gen_f,
-        #     None,
-        #     self.History,
-        #     self.persis_info,
-        #     self.gen_specs,
-        #     self.libE_info,
-        #     user_function=True,
-        # )  # note that self.thread's inbox/outbox are unused by the underlying gen
-
-        self.thread = QCommProcess(  # TRY A PROCESS
+        self.running_gen_f = QCommProcess(
             self.gen_f,
             None,
             self.History,
@@ -176,42 +153,87 @@ class LibensembleGenThreadInterfacer(LibensembleGenerator):
             self.gen_specs,
             self.libE_info,
             user_function=True,
-        )  # note that self.thread's inbox/outbox are unused by the underlying gen
+        )
 
-    def _set_sim_ended(self, results: npt.NDArray) -> npt.NDArray:
-        new_results = np.zeros(len(results), dtype=self.gen_specs["out"] + [("sim_ended", bool), ("f", float)])
-        for field in results.dtype.names:
+        # This can be set here since the object isnt started until the first suggest
+        self.libE_info["comm"] = self.running_gen_f.comm
+
+    def _prep_fields(self, results: npt.NDArray) -> npt.NDArray:
+        """Filter out fields that are not in persis_in and add sim_ended to the dtype"""
+        filtered_dtype = [
+            (name, results.dtype[name]) for name in results.dtype.names if name in self.gen_specs["persis_in"]
+        ]
+
+        new_dtype = filtered_dtype + [("sim_ended", bool)]
+        new_results = np.zeros(len(results), dtype=new_dtype)
+
+        for field in new_results.dtype.names:
             try:
                 new_results[field] = results[field]
-            except ValueError:  # lets not slot in data that the gen doesnt need?
+            except ValueError:
                 continue
+
         new_results["sim_ended"] = True
         return new_results
 
-    def tell(self, results: List[dict], tag: int = EVAL_GEN_TAG) -> None:
+    def ingest(self, results: List[dict], tag: int = EVAL_GEN_TAG) -> None:
         """Send the results of evaluations to the generator."""
-        self.tell_numpy(list_dicts_to_np(results), tag)
+        self.ingest_numpy(list_dicts_to_np(results, mapping=self.variables_mapping), tag)
 
-    def ask_numpy(self, num_points: int = 0) -> npt.NDArray:
+    def suggest_numpy(self, num_points: int = 0) -> npt.NDArray:
         """Request the next set of points to evaluate, as a NumPy array."""
-        if self.thread is None:
+        if self.running_gen_f is None:
             self.setup()
-            self.thread.run()
-        _, ask_full = self.outbox.get()
-        return ask_full["calc_out"]
+            self.running_gen_f.run()
+        _, suggest_full = self.running_gen_f.recv()
+        return suggest_full["calc_out"]
 
-    def tell_numpy(self, results: npt.NDArray, tag: int = EVAL_GEN_TAG) -> None:
+    def ingest_numpy(self, results: npt.NDArray, tag: int = EVAL_GEN_TAG) -> None:
         """Send the results of evaluations to the generator, as a NumPy array."""
         if results is not None:
-            results = self._set_sim_ended(results)
-            self.inbox.put(
-                (tag, {"libE_info": {"H_rows": np.copy(results["sim_id"]), "persistent": True, "executor": None}})
-            )
-            self.inbox.put((0, np.copy(results)))
+            results = self._prep_fields(results)
+            Work = {"libE_info": {"H_rows": np.copy(results["sim_id"]), "persistent": True, "executor": None}}
+            self.running_gen_f.send(tag, Work)
+            self.running_gen_f.send(
+                tag, np.copy(results)
+            )  # SH for threads check - might need deepcopy due to dtype=object
         else:
-            self.inbox.put((tag, None))
+            self.running_gen_f.send(tag, None)
 
-    def final_tell(self, results: npt.NDArray = None) -> (npt.NDArray, dict, int):
-        """Send any last results to the generator, and it to close down."""
-        self.tell_numpy(results, PERSIS_STOP)  # conversion happens in tell
-        return self.thread.result()
+    def finalize(self) -> None:
+        """Stop the generator process and store the returned data."""
+        self.ingest_numpy(None, PERSIS_STOP)  # conversion happens in ingest
+        self.gen_result = self.running_gen_f.result()
+
+    def export(
+        self, user_fields: bool = False, as_dicts: bool = False
+    ) -> tuple[npt.NDArray | list | None, dict | None, int | None]:
+        """Return the generator's results
+        Parameters
+        ----------
+        user_fields : bool, optional
+            If True, return local_H with variables unmapped from arrays back to individual fields.
+            Default is False.
+        as_dicts : bool, optional
+            If True, return local_H as list of dictionaries instead of numpy array.
+            Default is False.
+        Returns
+        -------
+        local_H : npt.NDArray | list
+            Generator history array (unmapped if user_fields=True, as dicts if as_dicts=True).
+        persis_info : dict
+            Persistent information.
+        tag : int
+            Status flag (e.g., FINISHED_PERSISTENT_GEN_TAG).
+        """
+        if not self.gen_result:
+            return (None, None, None)
+        local_H, persis_info, tag = self.gen_result
+        if user_fields and local_H is not None and self.variables_mapping:
+            local_H = unmap_numpy_array(local_H, self.variables_mapping)
+        if as_dicts and local_H is not None:
+            if user_fields and self.variables_mapping:
+                local_H = np_to_list_dicts(local_H, self.variables_mapping, allow_arrays=True)
+            else:
+                local_H = np_to_list_dicts(local_H, allow_arrays=True)
+        return (local_H, persis_info, tag)

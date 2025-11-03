@@ -1,10 +1,8 @@
 import numpy as np
-
-from libensemble.tools.tools import add_unique_random_streams
-from libensemble.utils.misc import list_dicts_to_np
+from libensemble.utils.misc import unmap_numpy_array
 
 
-def _check_conversion(H, npp):
+def _check_conversion(H, npp, mapping={}):
 
     for field in H.dtype.names:
         print(f"Comparing {field}: {H[field]} {npp[field]}")
@@ -20,40 +18,6 @@ def _check_conversion(H, npp):
 
         else:
             raise TypeError(f"Unhandled or mismatched types in field {field}: {type(H[field])} vs {type(npp[field])}")
-
-
-def test_asktell_sampling_and_utils():
-    from libensemble.gen_classes.sampling import UniformSample
-
-    persis_info = add_unique_random_streams({}, 5, seed=1234)
-    gen_specs = {
-        "out": [("x", float, (2,))],
-        "user": {
-            "lb": np.array([-3, -2]),
-            "ub": np.array([3, 2]),
-        },
-    }
-
-    # Test initialization with libensembley parameters
-    gen = UniformSample(None, persis_info[1], gen_specs, None)
-    assert len(gen.ask(10)) == 10
-
-    # Test initialization gen-specific keyword args
-    gen = UniformSample(gen_specs=gen_specs, lb=np.array([-3, -2]), ub=np.array([3, 2]))
-    assert len(gen.ask(10)) == 10
-
-    out_np = gen.ask_numpy(3)  # should get numpy arrays, non-flattened
-    out = gen.ask(3)  # needs to get dicts, 2d+ arrays need to be flattened
-    assert all([len(x) == 2 for x in out])  # np_to_list_dicts is now tested
-
-    # now we test list_dicts_to_np directly
-    out_np = list_dicts_to_np(out)
-
-    # check combined values resemble flattened list-of-dicts values
-    assert out_np.dtype.names == ("x",)
-    for i, entry in enumerate(out):
-        for j, value in enumerate(entry.values()):
-            assert value == out_np["x"][i][j]
 
 
 def test_awkward_list_dict():
@@ -87,6 +51,34 @@ def test_awkward_list_dict():
 
     assert all([i in ("x", "y", "z", "a0") for i in out_np.dtype.names])
 
+    weird_list_dict = [
+        {
+            "sim_id": 77,
+            "core": 89,
+            "edge": 10.1,
+            "beam": 76.5,
+            "energy": 12.34,
+            "local_pt": True,
+            "local_min": False,
+        },
+        {
+            "sim_id": 10,
+            "core": 32.8,
+            "edge": 16.2,
+            "beam": 33.5,
+            "energy": 99.34,
+            "local_pt": False,
+            "local_min": False,
+        },
+    ]
+
+    # target dtype: [("sim_id", int), ("x, float, (3,)), ("f", float), ("local_pt", bool), ("local_min", bool)]
+
+    mapping = {"x": ["core", "edge", "beam"], "f": ["energy"]}
+    out_np = list_dicts_to_np(weird_list_dict, mapping=mapping)
+
+    assert all([i in ("sim_id", "x", "f", "local_pt", "local_min") for i in out_np.dtype.names])
+
 
 def test_awkward_H():
     from libensemble.utils.misc import list_dicts_to_np, np_to_list_dicts
@@ -101,7 +93,64 @@ def test_awkward_H():
     _check_conversion(H, npp)
 
 
+def test_unmap_numpy_array_basic():
+    """Test basic unmapping of x and x_on_cube arrays"""
+
+    dtype = [("sim_id", int), ("x", float, (3,)), ("x_on_cube", float, (3,)), ("f", float), ("grad", float, (3,))]
+    H = np.zeros(2, dtype=dtype)
+    H[0] = (0, [1.1, 2.2, 3.3], [0.1, 0.2, 0.3], 10.5, [0.1, 0.2, 0.3])
+    H[1] = (1, [4.4, 5.5, 6.6], [0.4, 0.5, 0.6], 20.7, [0.4, 0.5, 0.6])
+
+    mapping = {"x": ["x0", "x1", "x2"], "x_on_cube": ["x0_cube", "x1_cube", "x2_cube"]}
+    H_unmapped = unmap_numpy_array(H, mapping)
+
+    expected_fields = ["sim_id", "x0", "x1", "x2", "x0_cube", "x1_cube", "x2_cube", "f"]
+    assert all(field in H_unmapped.dtype.names for field in expected_fields)
+
+    assert H_unmapped["x0"][0] == 1.1
+    assert H_unmapped["x1"][0] == 2.2
+    assert H_unmapped["x2"][0] == 3.3
+    assert H_unmapped["x0_cube"][0] == 0.1
+    assert H_unmapped["x1_cube"][0] == 0.2
+    assert H_unmapped["x2_cube"][0] == 0.3
+    # Test that non-mapped array fields are passed through unchanged
+    assert "grad" in H_unmapped.dtype.names
+    assert np.array_equal(H_unmapped["grad"], H["grad"])
+
+
+def test_unmap_numpy_array_single_dimension():
+    """Test unmapping with single dimension"""
+
+    dtype = [("sim_id", int), ("x", float, (1,)), ("f", float)]
+    H = np.zeros(1, dtype=dtype)
+    H[0] = (0, [5.5], 15.0)
+
+    mapping = {"x": ["x0"]}
+    H_unmapped = unmap_numpy_array(H, mapping)
+
+    assert "x0" in H_unmapped.dtype.names
+    assert H_unmapped["x0"][0] == 5.5
+
+
+def test_unmap_numpy_array_edge_cases():
+    """Test edge cases for unmap_numpy_array"""
+
+    dtype = [("sim_id", int), ("x", float, (2,)), ("f", float)]
+    H = np.zeros(1, dtype=dtype)
+    H[0] = (0, [1.0, 2.0], 10.0)
+
+    # No mapping
+    H_no_mapping = unmap_numpy_array(H, {})
+    assert H_no_mapping is H
+
+    # None array
+    H_none = unmap_numpy_array(None, {"x": ["x0", "x1"]})
+    assert H_none is None
+
+
 if __name__ == "__main__":
-    test_asktell_sampling_and_utils()
     test_awkward_list_dict()
     test_awkward_H()
+    test_unmap_numpy_array_basic()
+    test_unmap_numpy_array_single_dimension()
+    test_unmap_numpy_array_edge_cases()

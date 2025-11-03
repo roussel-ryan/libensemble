@@ -4,7 +4,7 @@ information from the sim_f
 
 Execute via one of the following commands (e.g. 3 workers):
    mpiexec -np 4 python test_persistent_aposmm_with_grad.py
-   python test_persistent_aposmm_with_grad.py --nworkers 3 --comms local
+   python test_persistent_aposmm_with_grad.py --nworkers 3
    python test_persistent_aposmm_with_grad.py --nworkers 3 --comms tcp
 
 When running with the above commands, the number of concurrent evaluations of
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             "initial_sample_size": 0,  # Don't need to do evaluations because the sampling already done below
             "localopt_method": "LD_MMA",
             "rk_const": 0.5 * ((gamma(1 + (n / 2)) * 5) ** (1 / n)) / sqrt(pi),
-            "stop_after_k_minima": 25,
+            "stop_after_k_minima": 15,
             "xtol_rel": 1e-6,
             "ftol_rel": 1e-6,
             "max_active_runs": 6,

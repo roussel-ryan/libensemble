@@ -2,21 +2,12 @@
 Misc internal functions
 """
 
-from itertools import groupby
+from itertools import chain, groupby
 from operator import itemgetter
 from typing import List
 
 import numpy as np
-import pydantic
-from numpy import typing as npt
-
-pydantic_version = pydantic.__version__[0]
-
-pydanticV1 = pydantic_version == "1"
-pydanticV2 = pydantic_version == "2"
-
-if not pydanticV1 and not pydanticV2:
-    raise ModuleNotFoundError("Pydantic not installed or current version not supported. Install v1 or v2.")
+import numpy.typing as npt
 
 
 def extract_H_ranges(Work: dict) -> str:
@@ -58,43 +49,22 @@ class _WorkerIndexer:
 
 
 def specs_dump(specs, **kwargs):
-    if pydanticV1:
-        return specs.dict(**kwargs)
-    else:
-        return specs.model_dump(**kwargs)
+    return specs.model_dump(**kwargs)
 
 
 def specs_checker_getattr(obj, key, default=None):
-    if pydanticV1:  # dict
-        return obj.get(key, default)
-    else:  # actual obj
-        try:
-            return getattr(obj, key)
-        except AttributeError:
-            return default
+    try:
+        return getattr(obj, key)
+    except AttributeError:
+        return default
 
 
 def specs_checker_setattr(obj, key, value):
-    if pydanticV1:  # dict
-        obj[key] = value
-    else:  # actual obj
-        obj.__dict__[key] = value
-
-
-def _decide_dtype(name: str, entry, size: int) -> tuple:
-    if isinstance(entry, str):
-        output_type = "U" + str(len(entry) + 1)
-    else:
-        output_type = type(entry)
-    if size == 1 or not size:
-        return (name, output_type)
-    else:
-        return (name, output_type, (size,))
+    obj.__dict__[key] = value
 
 
 def _combine_names(names: list) -> list:
     """combine fields with same name *except* for final digits"""
-
     out_names = []
     stripped = list(i.rstrip("0123456789") for i in names)  # ['x', 'x', y', 'z', 'a']
     for name in names:
@@ -108,60 +78,191 @@ def _combine_names(names: list) -> list:
     return list(set(out_names))
 
 
-def list_dicts_to_np(list_dicts: list, dtype: list = None) -> npt.NDArray:
+def _get_new_dtype_fields(first: dict, mapping: dict = {}) -> list:
+    """build list of fields that will be in the output numpy array"""
+    new_dtype_names = _combine_names([i for i in first.keys()])  # -> ['x', 'y']
+    fields_to_convert = list(  # combining all mapping lists
+        chain.from_iterable(list(mapping.values()))
+    )  # fields like ["beam_length", "beam_width"] that will become "x"
+    new_dtype_names = [i for i in new_dtype_names if i not in fields_to_convert] + list(
+        mapping.keys()
+    )  # array dtype needs "x". avoid fields from mapping values since we're converting those to "x"
+    return new_dtype_names
+
+
+def _get_combinable_multidim_names(first: dict, new_dtype_names: list) -> list:
+    """inspect the input dict for fields that can be combined (e.g. x0, x1)"""
+    combinable_names = []
+    for name in new_dtype_names:
+        combinable_group = [i for i in first.keys() if i.rstrip("0123456789") == name]
+        if len(combinable_group) > 1:  # multiple similar names, e.g. x0, x1
+            combinable_names.append(combinable_group)
+        else:  # single name, e.g. local_pt, a0 *AS LONG AS THERE ISNT AN A1*
+            combinable_names.append([name])
+    return combinable_names
+
+
+def _decide_dtype(name: str, entry, size: int) -> tuple:
+    """decide dtype of field, and size if needed"""
+    if isinstance(entry, str):  # use numpy style for string type
+        output_type = "U" + str(len(entry) + 1)
+    else:
+        output_type = type(entry)  # use default "python" type
+    if size == 1 or not size:
+        return (name, output_type)
+    else:
+        return (name, output_type, (size,))  # 3-tuple for multi-dimensional
+
+
+def _start_building_dtype(
+    first: dict, new_dtype_names: list, combinable_names: list, dtype: list, mapping: dict
+) -> list:
+    """parse out necessary components of dtype for output numpy array"""
+    for i, entry in enumerate(combinable_names):
+        name = new_dtype_names[i]
+        size = len(combinable_names[i])  # e.g. 2 for [x0, x1]
+        if name not in mapping:  # mapping keys are what we're converting *to*
+            dtype.append(_decide_dtype(name, first[entry[0]], size))
+    return dtype
+
+
+def _pack_field(input_dict: dict, field_names: list) -> tuple:
+    """pack dict data into tuple for slotting into numpy array"""
+    # {"x0": 1, "x1": 2} -> (1, 2)
+    return tuple(input_dict[name] for name in field_names) if len(field_names) > 1 else input_dict[field_names[0]]
+
+
+def list_dicts_to_np(list_dicts: list, dtype: list = None, mapping: dict = {}) -> npt.NDArray:
     if list_dicts is None:
         return None
 
     if not isinstance(list_dicts, list):  # presumably already a numpy array, conversion not necessary
         return list_dicts
 
-    first = list_dicts[0]  # for determining dtype of output np array
-    new_dtype_names = _combine_names([i for i in first.keys()])  # -> ['x', 'y']
-    combinable_names = []  # [['x0', 'x1'], ['y0', 'y1', 'y2'], ['z']]
-    for name in new_dtype_names:  # is this a necessary search over the keys again? we did it earlier...
-        combinable_group = [i for i in first.keys() if i.rstrip("0123456789") == name]
-        if len(combinable_group) > 1:  # multiple similar names, e.g. x0, x1
-            combinable_names.append(combinable_group)
-        else:  # single name, e.g. local_pt, a0 *AS LONG AS THERE ISNT AN A1*
-            combinable_names.append([name])
+    # entering gen: convert _id to sim_id
+    for entry in list_dicts:
+        if "_id" in entry:
+            entry["sim_id"] = entry.pop("_id")
 
-    if dtype is None:
+    # first entry is used to determine dtype
+    first = list_dicts[0]
+
+    # build a presumptive dtype
+    new_dtype_names = _get_new_dtype_fields(first, mapping)
+    combinable_names = _get_combinable_multidim_names(first, new_dtype_names)  # [['x0', 'x1'], ['z']]
+
+    if (
+        dtype is None
+    ):  # rather roundabout. I believe default value gets set upon function instantiation. (default is mutable!)
         dtype = []
 
+    # build dtype of non-mapped fields. appending onto empty dtype
     if not len(dtype):
-        # another loop over names, there's probably a more elegant way, but my brain is fried
-        for i, entry in enumerate(combinable_names):
-            name = new_dtype_names[i]
-            size = len(combinable_names[i])
-            dtype.append(_decide_dtype(name, first[entry[0]], size))
+        dtype = _start_building_dtype(first, new_dtype_names, combinable_names, dtype, mapping)
+
+    # append dtype of mapped float fields
+    if len(mapping):
+        for name in mapping:
+            size = len(mapping[name])
+            dtype.append(_decide_dtype(name, 0.0, size))  # float
 
     out = np.zeros(len(list_dicts), dtype=dtype)
 
-    for i, group in enumerate(combinable_names):
-        new_dtype_name = new_dtype_names[i]
-        for j, input_dict in enumerate(list_dicts):
-            if len(group) == 1:  # only a single name, e.g. local_pt
-                out[new_dtype_name][j] = input_dict[new_dtype_name]
-            else:  # combinable names detected, e.g. x0, x1
-                out[new_dtype_name][j] = tuple([input_dict[name] for name in group])
-
+    # starting packing data from list of dicts into array
+    for j, input_dict in enumerate(list_dicts):
+        for output_name, input_names in zip(new_dtype_names, combinable_names):  # [('x', ['x0', 'x1']), ...]
+            if output_name not in mapping:
+                out[output_name][j] = _pack_field(input_dict, input_names)
+            else:
+                out[output_name][j] = _pack_field(input_dict, mapping[output_name])
     return out
 
 
-def np_to_list_dicts(array: npt.NDArray) -> List[dict]:
+def _is_multidim(selection: npt.NDArray) -> bool:
+    return hasattr(selection, "__len__") and len(selection) > 1 and not isinstance(selection, str)
+
+
+def _is_singledim(selection: npt.NDArray) -> bool:
+    return (hasattr(selection, "__len__") and len(selection) == 1) or selection.shape == ()
+
+
+def unmap_numpy_array(array: npt.NDArray, mapping: dict = {}) -> npt.NDArray:
+    """Convert numpy array with mapped fields back to individual scalar fields.
+    Parameters
+    ----------
+    array : npt.NDArray
+        Input array with mapped fields like x = [x0, x1, x2]
+    mapping : dict
+        Mapping from field names to variable names
+    Returns
+    -------
+    npt.NDArray
+        Array with unmapped fields like x0, x1, x2 as individual scalars
+    """
+    if not mapping or array is None:
+        return array
+    # Create new dtype with unmapped fields
+    new_fields = []
+    for field in array.dtype.names:
+        if field in mapping:
+            for var_name in mapping[field]:
+                new_fields.append((var_name, array[field].dtype.type))
+        else:
+            # Preserve the original field structure including per-row shape
+            field_dtype = array.dtype[field]
+            new_fields.append((field, field_dtype))
+    unmapped_array = np.zeros(len(array), dtype=new_fields)
+    for field in array.dtype.names:
+        if field in mapping:
+            # Unmap array fields
+            if len(array[field].shape) == 1:
+                # Scalar field mapped to single variable
+                unmapped_array[mapping[field][0]] = array[field]
+            else:
+                # Multi-dimensional field
+                for i, var_name in enumerate(mapping[field]):
+                    unmapped_array[var_name] = array[field][:, i]
+        else:
+            # Copy non-mapped fields
+            unmapped_array[field] = array[field]
+    return unmapped_array
+
+
+def np_to_list_dicts(array: npt.NDArray, mapping: dict = {}, allow_arrays: bool = False) -> List[dict]:
     if array is None:
         return None
     out = []
+
     for row in array:
         new_dict = {}
+
         for field in row.dtype.names:
             # non-string arrays, lists, etc.
-            if hasattr(row[field], "__len__") and len(row[field]) > 1 and not isinstance(row[field], str):
-                for i, x in enumerate(row[field]):
-                    new_dict[field + str(i)] = x
-            elif hasattr(row[field], "__len__") and len(row[field]) == 1:  # single-entry arrays, lists, etc.
-                new_dict[field] = row[field][0]  # will still work on single-char strings
-            else:
-                new_dict[field] = row[field]
+            if field not in list(mapping.keys()):
+                if _is_multidim(row[field]) and not allow_arrays:
+                    for i, x in enumerate(row[field]):
+                        new_dict[field + str(i)] = x
+
+                else:
+                    new_dict[field] = row[field]
+
+            else:  # keys from mapping and array unpacked into corresponding fields in dicts
+                field_shape = array.dtype[field].shape[0] if len(array.dtype[field].shape) > 0 else 1
+                assert field_shape == len(mapping[field]), (
+                    "dimension mismatch between mapping and array with field " + field
+                )
+
+                for i, name in enumerate(mapping[field]):
+                    if _is_multidim(row[field]):
+                        new_dict[name] = row[field][i]
+                    elif _is_singledim(row[field]):
+                        new_dict[name] = row[field]
+
         out.append(new_dict)
+
+    # exiting gen: convert sim_id to _id
+    for entry in out:
+        if "sim_id" in entry:
+            entry["_id"] = entry.pop("sim_id")
+
     return out
